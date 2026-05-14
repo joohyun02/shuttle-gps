@@ -898,7 +898,7 @@ function setMapRoute(route) {
 
 function autoConnectBusSSE(busId) {
   if (sseSource) sseSource.close();
-  const url = 'http://localhost:3000';
+  const url = 'https://shuttle-gps-production.up.railway.app';
   sseSource = new EventSource(`${url}/stream?busId=${busId}`);
   sseSource.onmessage = (e) => {
     try {
@@ -1313,7 +1313,7 @@ function calcBusAt(lat, lng, stops) {
 // SSE 연결 (전체 버스 수신)
 let routeSSE = null;
 function connectRouteSSE() {
-  const serverUrl = 'http://localhost:3000';
+  const serverUrl = 'https://shuttle-gps-production.up.railway.app';
   if (routeSSE) routeSSE.close();
   routeSSE = new EventSource(`${serverUrl}/stream`);
 
