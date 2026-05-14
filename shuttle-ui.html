@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>세한대학교 셔틀버스</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0f0;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}
+
+/* ✅ 수정1: 플로우 네비 버튼 color #999 → #555 */
+.flow-nav{display:flex;align-items:center;gap:5px;margin-bottom:14px;flex-wrap:wrap;justify-content:center}
+.fn{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid #ddd;background:#fff;color:#555;cursor:pointer;transition:all .15s;white-space:nowrap}
+.fn.active{background:#534AB7;color:#fff;border-color:#534AB7}
+.fn.done{color:#1D9E75;border-color:#1D9E75;background:#fff}
+.fn-sep{color:#999;font-size:11px}
+.screen{display:none}
+.screen.active{display:block}
+
+/* 폰 프레임 */
+.phone{background:#fff;border-radius:22px;width:320px;overflow:hidden;border:1px solid #e0e0e0;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.topbar{background:#fff;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0f0f0}
+.tb-title{font-size:14px;font-weight:500;color:#111}
+.back-btn{width:28px;height:28px;border-radius:50%;background:#f5f5f5;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:none}
+.body{padding:14px}
+
+/* 세한대 앱 */
+.sehan-header{display:flex;flex-direction:column;align-items:center;padding:18px 0 14px}
+.sehan-logo{display:flex;align-items:center;gap:6px}
+.sehan-s{width:32px;height:32px;background:#4A6CF7;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;font-style:italic}
+.sehan-name{font-size:17px;font-weight:600;color:#222}
+.sehan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#f0f0f0}
+.sehan-item{background:#fff;padding:20px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:background .12s;border:none;width:100%}
+.sehan-item:hover{background:#fafafa}
+.sehan-item.hl{background:#f0f2ff}
+.sehan-item.hl:hover{background:#e8ebff}
+.si-icon{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.si-label{font-size:12px;color:#444;font-weight:400}
+
+/* 메인 */
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.mc{background:#f7f7f7;border:1px solid #eee;border-radius:14px;padding:16px;cursor:pointer;text-align:center;transition:all .15s;width:100%;border:none}
+.mc.hl{border:2px solid #534AB7 !important;background:#f5f4ff}
+.mc-icon{width:40px;height:40px;border-radius:12px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center}
+.mc-title{font-size:12px;font-weight:500;color:#111;margin-bottom:2px}
+.mc-sub{font-size:10px;color:#888}
+.notif{background:#f5f4ff;border:1px solid #d5d0f5;border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.notif-t{font-size:10px;color:#534AB7;font-weight:500;margin-bottom:2px}
+.notif-s{font-size:11px;color:#666}
+.next-box{background:#f7f7f7;border:1px solid #eee;border-radius:10px;padding:10px 12px}
+
+/* 노선 */
+.tab-row{display:flex;gap:6px;margin-bottom:12px}
+.tab{flex:1;padding:8px;border-radius:8px;border:1px solid #eee;font-size:12px;font-weight:500;text-align:center;cursor:pointer;color:#666;background:#f7f7f7;transition:all .15s}
+.tab.active{background:#534AB7;color:#fff;border-color:#534AB7}
+.date-row{display:flex;gap:4px;margin-bottom:12px}
+.db{flex:1;padding:5px 0;border-radius:8px;border:1px solid #eee;font-size:10px;color:#666;background:#f7f7f7;cursor:pointer;text-align:center;line-height:1.4}
+.db.active{background:#534AB7;color:#fff;border-color:#534AB7;font-weight:500}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.rc{background:#fff;border:1px solid #eee;border-radius:12px;padding:10px;cursor:pointer;transition:all .15s}
+.rc:hover{border-color:#AFA9EC}
+.rc.sel{border:2px solid #534AB7;background:#f5f4ff}
+.rc.full{border-color:#ffccc7;background:#fff8f8;cursor:not-allowed}
+.rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rname{font-size:11px;font-weight:500;color:#111}
+.badge{font-size:9px;padding:2px 6px;border-radius:20px;font-weight:500}
+.bg{background:#e8f8f0;color:#0a6a3a}
+.ba{background:#fff4e0;color:#8a4a00}
+.bf{background:#ffe8e8;color:#a32d2d}
+.stop-row{display:flex;align-items:center;margin-bottom:4px}
+.sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:all .4s}
+.sdot.s-start{background:#1D9E75}
+.sdot.s-mid{background:#fff;border:2px solid #ddd}
+.sdot.s-mid.passed{background:#1D9E75;border-color:#1D9E75}
+.sdot.s-end{background:#534AB7}
+.seg-wrap{flex:1;height:12px;position:relative;display:flex;align-items:center}
+.seg-line{position:absolute;left:0;right:0;height:1.5px;background:#eee}
+.seg-fill{position:absolute;left:0;height:1.5px;background:#1D9E75;transition:width .4s}
+.bus-icon{position:absolute;top:50%;transform:translate(-50%,-50%);transition:left .5s ease;z-index:2}
+.bus-svg{display:block}
+.ms-names{display:flex;justify-content:space-between;font-size:9px;color:#888;margin-bottom:4px}
+.sbar{height:3px;background:#eee;border-radius:2px;overflow:hidden;margin-top:2px}
+.sfill{height:100%;border-radius:2px}
+.seat-txt{display:flex;justify-content:space-between;font-size:9px;color:#888;margin-top:3px}
+.notice-box{font-size:10px;color:#666;background:#f7f7f7;border-radius:8px;padding:8px 10px;margin-bottom:10px;border:1px solid #eee}
+.cta{width:100%;padding:12px;border-radius:10px;background:#534AB7;color:#fff;font-size:13px;font-weight:500;border:none;cursor:pointer}
+.cta:disabled{background:#eee;color:#aaa;cursor:not-allowed}
+
+/* 결제 */
+.step-row{display:flex;align-items:center;padding:10px 16px;background:#fafafa;border-bottom:1px solid #f0f0f0}
+.sp{display:flex;flex-direction:column;align-items:center;gap:2px}
+.sp-dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500}
+.sp-lbl{font-size:9px}
+.sp-line{flex:1;height:0.5px;margin-bottom:10px}
+.icard{background:#f7f7f7;border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:14px}
+.irow{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
+.irow+.irow{border-top:1px solid #f0f0f0;margin-top:3px}
+.il{color:#888}
+.iv{color:#111;font-weight:500}
+.sec-lbl{font-size:11px;color:#666;margin-bottom:8px}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.tcard{border-radius:10px;padding:10px;cursor:pointer;border:1px solid #eee;background:#f7f7f7;transition:all .15s}
+.tcard.sel{border:2px solid #534AB7;background:#f5f4ff}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.pcard{border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;border:1px solid #eee;background:#f7f7f7;transition:all .15s}
+.pcard.sel{border:2px solid #534AB7;background:#f5f4ff}
+.picon{width:28px;height:28px;border-radius:8px;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.pname{font-size:10px;color:#666}
+.pcard.sel .pname{color:#534AB7}
+.pay-hint{font-size:10px;color:#888;margin-bottom:14px}
+.divider{height:1px;background:#f0f0f0;margin:8px 0 12px}
+
+/* 승차권 */
+.live-dot{width:6px;height:6px;border-radius:50%;background:#1D9E75;animation:blink 1.4s infinite;display:inline-block;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.qr-card{background:#f7f7f7;border:1px solid #eee;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
+.qr-wrap{width:110px;height:110px;margin:0 auto;background:#111;border-radius:8px;padding:7px;display:grid;grid-template-columns:repeat(9,1fr);gap:1.5px}
+.qc{border-radius:.5px}
+.status-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:9px;font-weight:500;background:#e8f8f0;color:#0a6a3a;margin-top:8px}
+.drow{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-top:1px solid #f0f0f0}
+.dl{color:#888}
+.dv{color:#111;font-weight:500}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0 12px}
+.tag{background:#f7f7f7;border:1px solid #eee;border-radius:6px;padding:3px 8px;font-size:9px;color:#777}
+.live-btn{background:#f5f4ff;border:1.5px solid #534AB7;border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;cursor:pointer;width:100%;margin-bottom:8px;transition:all .15s}
+.live-btn:hover{background:#eeecff}
+.live-btn-icon{width:36px;height:36px;border-radius:10px;background:#e8e5ff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ✅ 수정2: 홈으로 버튼 color #999 → #555, border #eee → #ddd */
+.cta-ghost{width:100%;padding:11px;border-radius:10px;background:#fff;color:#555;border:1px solid #ddd;font-size:13px;cursor:pointer;font-weight:500}
+
+/* 탑승이력 */
+.hist-filter{display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.hf{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid #eee;background:#f7f7f7;color:#666;cursor:pointer;white-space:nowrap;transition:all .15s}
+.hf.active{background:#534AB7;color:#fff;border-color:#534AB7}
+.hist-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.hs-box{background:#f7f7f7;border:1px solid #eee;border-radius:10px;padding:10px;text-align:center}
+.hs-val{font-size:17px;font-weight:600;color:#534AB7;line-height:1.1}
+.hs-lbl{font-size:9px;color:#999;margin-top:3px}
+.hist-list{display:flex;flex-direction:column;gap:8px}
+.hcard{background:#fff;border:1px solid #eee;border-radius:12px;overflow:hidden;transition:all .15s}
+.hcard-top{padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.hcard-badge{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hcard-info{flex:1;min-width:0}
+.hcard-route{font-size:12px;font-weight:500;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hcard-date{font-size:10px;color:#888;margin-top:2px}
+.hcard-status{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.hstatus{font-size:9px;padding:2px 7px;border-radius:20px;font-weight:500}
+.hs-done{background:#e8f8f0;color:#0a6a3a}
+.hs-cancel{background:#f5f5f5;color:#999}
+.hs-upcoming{background:#eeecff;color:#534AB7}
+.hcard-detail{background:#fafafa;border-top:1px solid #f0f0f0;padding:10px 12px;display:none}
+.hcard-detail.open{display:block}
+.hd-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0}
+.hd-l{color:#888}
+.hd-v{color:#111;font-weight:500}
+.hd-actions{display:flex;gap:6px;margin-top:10px}
+.ha-btn{flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid #ddd;background:#fff;color:#555;cursor:pointer;text-align:center}
+.ha-btn.primary{background:#534AB7;color:#fff;border-color:#534AB7}
+.ha-btn.danger{background:#fff;color:#E24B4A;border-color:#ffccc7}
+.hist-empty{text-align:center;padding:40px 20px;color:#bbb}
+.hist-empty-icon{font-size:32px;margin-bottom:10px}
+
+/* 지도 */
+.map-area{position:relative;height:240px;overflow:hidden;background:#e8ede8}
+#leaflet-map{width:100%;height:100%;z-index:1}
+.leaflet-container{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.bus-mk{position:absolute;width:34px;height:34px;transform:translate(-50%,-50%);transition:left 1.2s cubic-bezier(.4,0,.2,1),top 1.2s cubic-bezier(.4,0,.2,1);z-index:10;cursor:pointer}
+.bus-pulse{position:absolute;inset:-7px;border-radius:50%;border:2px solid #534AB7;opacity:.4;animation:ripple 2s infinite}
+@keyframes ripple{0%{transform:scale(1);opacity:.4}100%{transform:scale(1.7);opacity:0}}
+.bus-inner{width:34px;height:34px;background:#534AB7;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(83,74,183,.35)}
+/* Leaflet 커스텀 아이콘 */
+.lf-bus-icon{background:#534AB7;border:2.5px solid #fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(83,74,183,.35);position:relative}
+.lf-bus-pulse{position:absolute;inset:-7px;border-radius:50%;border:2px solid #534AB7;opacity:.4;animation:ripple 2s infinite;pointer-events:none}
+.lf-stop-pin{display:flex;flex-direction:column;align-items:center}
+.lf-stop-lbl{background:#fff;color:#555;font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;margin-bottom:3px;white-space:nowrap;border:1px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.lf-stop-lbl.active{background:#534AB7;color:#fff;border-color:#534AB7}
+.lf-stop-lbl.passed{background:#f0f0f0;color:#bbb;border-color:#e0e0e0}
+.lf-stop-dot{width:12px;height:12px;border-radius:50%;border:2.5px solid #ccc;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.lf-stop-dot.active{border-color:#534AB7;box-shadow:0 0 0 3px rgba(83,74,183,.15)}
+.lf-stop-dot.school{border-color:#1D9E75;background:#1D9E75}
+.lf-stop-dot.passed{border-color:#534AB7;background:#534AB7}
+.stop-mk{position:absolute;transform:translate(-50%,-100%);z-index:8}
+.stop-pin{display:flex;flex-direction:column;align-items:center}
+.slbl{background:#fff;color:#555;font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;margin-bottom:3px;white-space:nowrap;border:1px solid #ddd;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:all .4s}
+.slbl.next{background:#534AB7;color:#fff;border-color:#534AB7}
+.slbl.done{background:#f0f0f0;color:#bbb;border-color:#e0e0e0}
+.sdot{width:12px;height:12px;border-radius:50%;border:2.5px solid #ccc;background:#fff;transition:all .4s;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.sdot.next{border-color:#534AB7;box-shadow:0 0 0 3px rgba(83,74,183,.15)}
+.sdot.done{border-color:#534AB7;background:#534AB7}
+.sdot.school{border-color:#1D9E75;background:#1D9E75}
+.my-badge-map{position:absolute;left:8px;bottom:8px;background:#fff;border:1px solid #534AB7;border-radius:8px;padding:5px 10px;z-index:20;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.zoom-btns{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:2px;z-index:20}
+.zbtn{width:28px;height:28px;background:#fff;border:1px solid #ddd;border-radius:4px;color:#555;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.naver-wm{position:absolute;bottom:6px;right:8px;background:rgba(255,255,255,.85);border-radius:3px;padding:2px 6px;font-size:9px;color:#999;font-weight:600;z-index:20}
+.sw-toast{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#534AB7;border-radius:20px;padding:5px 14px;font-size:10px;color:#fff;font-weight:500;z-index:30;white-space:nowrap;opacity:0;transition:opacity .4s;pointer-events:none}
+.sw-toast.show{opacity:1}
+.bs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.18);z-index:40;display:none;align-items:flex-end}
+.bs-overlay.show{display:flex}
+.bs{background:#fff;border-radius:16px 16px 0 0;padding:16px;width:100%;box-shadow:0 -4px 20px rgba(0,0,0,.1)}
+.bs-handle{width:36px;height:4px;border-radius:2px;background:#eee;margin:0 auto 12px}
+.bs-title{font-size:13px;font-weight:500;color:#111;margin-bottom:10px}
+.bs-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px solid #f5f5f5}
+.bs-l{color:#888}
+.bs-v{color:#111;font-weight:500}
+.bs-close{width:100%;margin-top:12px;padding:10px;border-radius:10px;background:#f5f4ff;color:#534AB7;font-size:12px;font-weight:500;border:none;cursor:pointer}
+.eta-panel{background:#fff;padding:12px 16px;border-top:1px solid #f0f0f0}
+.eta-main{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.eta-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#f5f4ff;transition:background .5s}
+.st-track{display:flex;align-items:center}
+.std{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
+.std-dot{width:10px;height:10px;border-radius:50%;transition:all .5s}
+.std-dot.done{background:#534AB7}
+.std-dot.next{background:#fff;border:2.5px solid #534AB7;box-shadow:0 0 0 2px rgba(83,74,183,.15)}
+.std-dot.idle{background:#eee;border:2px solid #ddd}
+.std-dot.school{background:#1D9E75}
+.std-name{font-size:9px;font-weight:500;transition:color .4s}
+.std-name.done{color:#534AB7}
+.std-name.next{color:#111;font-weight:600}
+.std-name.idle{color:#ddd}
+.std-name.school{color:#1D9E75}
+.st-line-w{flex:1;height:2px;background:#f0f0f0;position:relative;overflow:hidden;margin-bottom:12px}
+.st-line-fill{position:absolute;inset:0;background:#534AB7;transform:scaleX(0);transform-origin:left;transition:transform 1.2s ease}
+.map-ctrl{display:flex;gap:8px;padding:10px 16px;background:#fafafa;border-top:1px solid #f0f0f0}
+/* ✅ 수정3: 지도 컨트롤 버튼도 color #555로 통일 */
+.mbtn{flex:1;padding:8px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid #ddd;background:#fff;color:#555;cursor:pointer}
+.mbtn.primary{background:#534AB7;color:#fff;border-color:#534AB7}
+</style>
+</head>
+<body>
+
+<div class="flow-nav">
+  <button class="fn active" id="fn-sehan" onclick="go('sehan')">세한대 앱</button>
+  <span class="fn-sep">→ 버스 클릭</span>
+  <button class="fn" id="fn-main" onclick="go('main')">① 메인</button>
+  <span class="fn-sep">→</span>
+  <button class="fn" id="fn-route" onclick="go('route')">② 노선 선택</button>
+  <span class="fn-sep">→</span>
+  <button class="fn" id="fn-pay" onclick="go('pay')">③ 결제</button>
+  <span class="fn-sep">→</span>
+  <button class="fn" id="fn-ticket" onclick="go('ticket')">④ QR 승차권</button>
+  <span class="fn-sep">→</span>
+  <button class="fn" id="fn-map" onclick="go('map')">⑤ 실시간 지도</button>
+  <span class="fn-sep">|</span>
+  <button class="fn" id="fn-history" onclick="go('history')">⑥ 탑승이력</button>
+</div>
+
+<!-- 세한대 앱 -->
+<div class="screen active" id="sc-sehan">
+  <div class="phone">
+    <div class="sehan-header">
+      <div class="sehan-logo">
+        <div class="sehan-s">S</div>
+        <div class="sehan-name">세한대학교</div>
+      </div>
+    </div>
+    <div class="sehan-grid">
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="4" width="18" height="20" rx="2" stroke="#4A6CF7" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="10" stroke="#4A6CF7" stroke-width="1.2"/><line x1="9" y1="14" x2="19" y2="14" stroke="#4A6CF7" stroke-width="1.2"/><line x1="9" y1="18" x2="15" y2="18" stroke="#4A6CF7" stroke-width="1.2"/></svg></div><div class="si-label">공지사항</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="13" r="8" stroke="#4A6CF7" stroke-width="1.5"/><circle cx="14" cy="13" r="1.5" fill="#4A6CF7"/></svg></div><div class="si-label">메시지</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><line x1="7" y1="9" x2="21" y2="9" stroke="#4A6CF7" stroke-width="1.5"/><line x1="7" y1="14" x2="21" y2="14" stroke="#4A6CF7" stroke-width="1.5"/><line x1="7" y1="19" x2="16" y2="19" stroke="#4A6CF7" stroke-width="1.5"/><circle cx="20" cy="19" r="3" stroke="#4A6CF7" stroke-width="1.2"/></svg></div><div class="si-label">설문조사</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="8" width="18" height="14" rx="2" stroke="#4A6CF7" stroke-width="1.5"/><path d="M9 8V6a5 5 0 0110 0v2" stroke="#4A6CF7" stroke-width="1.5"/></svg></div><div class="si-label">출석</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="5" width="18" height="18" rx="2" stroke="#4A6CF7" stroke-width="1.5"/><line x1="5" y1="11" x2="23" y2="11" stroke="#4A6CF7" stroke-width="1.2"/><line x1="14" y1="5" x2="14" y2="23" stroke="#4A6CF7" stroke-width="1.2"/></svg></div><div class="si-label">시간표</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 5l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" stroke="#4A6CF7" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div class="si-label">성적조회</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="9" stroke="#4A6CF7" stroke-width="1.5"/><ellipse cx="14" cy="14" rx="4" ry="9" stroke="#4A6CF7" stroke-width="1.2"/><line x1="5" y1="14" x2="23" y2="14" stroke="#4A6CF7" stroke-width="1.2"/></svg></div><div class="si-label">홈페이지</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="18" cy="9" r="2" fill="#4A6CF7"/><path d="M14 6c-4 4-6 8-2 12s8 2 8 2" stroke="#4A6CF7" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="si-label">교통정보</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M7 18V10M11 18V14M15 18V12M19 18V8" stroke="#4A6CF7" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="20" x2="23" y2="20" stroke="#4A6CF7" stroke-width="1.2"/></svg></div><div class="si-label">식단정보</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="5" width="7" height="7" rx="1" stroke="#4A6CF7" stroke-width="1.3"/><rect x="16" y="5" width="7" height="7" rx="1" stroke="#4A6CF7" stroke-width="1.3"/><rect x="5" y="16" width="7" height="7" rx="1" stroke="#4A6CF7" stroke-width="1.3"/><rect x="16" y="16" width="7" height="7" rx="1" stroke="#4A6CF7" stroke-width="1.3"/></svg></div><div class="si-label">세한대포럼</div></button>
+      <button class="sehan-item"><div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="9" stroke="#4A6CF7" stroke-width="1.5"/><circle cx="14" cy="14" r="4" stroke="#4A6CF7" stroke-width="1.2"/></svg></div><div class="si-label">홈페이지</div></button>
+      <button class="sehan-item hl" onclick="go('main')">
+        <div class="si-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="7" width="20" height="14" rx="3" fill="#4A6CF7" opacity=".15"/><rect x="4" y="7" width="20" height="14" rx="3" stroke="#4A6CF7" stroke-width="1.5"/><rect x="7" y="11" width="5" height="4" rx=".8" stroke="#4A6CF7" stroke-width="1.1"/><rect x="16" y="11" width="5" height="4" rx=".8" stroke="#4A6CF7" stroke-width="1.1"/><circle cx="8" cy="22" r="2" fill="#4A6CF7"/><circle cx="20" cy="22" r="2" fill="#4A6CF7"/><line x1="10" y1="7" x2="10" y2="4" stroke="#4A6CF7" stroke-width="1.2"/><line x1="18" y1="7" x2="18" y2="4" stroke="#4A6CF7" stroke-width="1.2"/></svg></div>
+        <div class="si-label" style="color:#4A6CF7;font-weight:600">버스</div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ① 메인 -->
+<div class="screen" id="sc-main">
+  <div class="phone">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('sehan')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 10L4 6l4-4" stroke="#777" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tb-title">셔틀버스</div>
+      <div style="width:28px"></div>
+    </div>
+    <div class="body">
+      <div style="text-align:center;padding:16px 0 14px">
+        <div style="font-size:16px;font-weight:500;color:#111">셔틀버스 서비스</div>
+        <div style="font-size:11px;color:#888;margin-top:2px" id="main-date-sub">편리한 등하교를 위한 디지털 승차권</div>
+      </div>
+      <div class="main-grid">
+        <button class="mc hl" onclick="go('route')">
+          <div class="mc-icon" style="background:#eeecff"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="16" height="11" rx="2.5" fill="#7F77DD"/><rect x="3" y="7" width="5" height="3" rx=".5" fill="#eeecff"/><rect x="9" y="7" width="5" height="3" rx=".5" fill="#eeecff"/></svg></div>
+          <div class="mc-title">버스 예약</div><div class="mc-sub">노선 선택 · 결제</div>
+        </button>
+        <button class="mc" onclick="go('ticket')">
+          <div class="mc-icon" style="background:#e8f8f0"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" fill="none" stroke="#1D9E75" stroke-width="1.5"/><rect x="6" y="6" width="3" height="3" fill="#1D9E75"/><rect x="11" y="6" width="3" height="3" fill="#1D9E75"/><rect x="6" y="11" width="3" height="3" fill="#1D9E75"/></svg></div>
+          <div class="mc-title">내 승차권</div><div class="mc-sub">QR · 실시간 위치</div>
+        </button>
+        <button class="mc" onclick="go('history')" style="grid-column:1/-1">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="mc-icon" style="background:#fff4e6;margin:0;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#EF9F27" stroke-width="1.5"/><polyline points="10,6 10,10 13,12" stroke="#EF9F27" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div style="text-align:left">
+              <div class="mc-title">탑승이력</div>
+              <div class="mc-sub">이용내역 · 영수증 · 환불</div>
+            </div>
+            <div style="margin-left:auto;font-size:10px;color:#EF9F27;font-weight:600;background:#fff4e6;border-radius:20px;padding:2px 8px">12건</div>
+          </div>
+        </button>
+      </div>
+      <div class="notif"><div class="notif-t">공지사항</div><div class="notif-s">4/15 (화) 일산·송내 노선 5분 지연 예정</div></div>
+      <div class="next-box">
+        <div style="font-size:10px;color:#888;margin-bottom:5px">다음 예약</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:12px;font-weight:500;color:#111">신도림·광명 등교</div><div style="font-size:10px;color:#888;margin-top:2px">4/15 (화) · 07:30 출발</div></div>
+          <button onclick="go('ticket')" style="background:#534AB7;color:#fff;font-size:10px;font-weight:500;padding:4px 10px;border-radius:20px;border:none;cursor:pointer">QR 보기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ② 노선 선택 -->
+<div class="screen" id="sc-route">
+  <div class="phone">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('main')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 10L4 6l4-4" stroke="#777" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tb-title">버스 노선 선택</div><div style="width:26px"></div>
+    </div>
+    <div class="body">
+      <div class="tab-row">
+        <div class="tab active" id="tgo" onclick="setMode('go')">등교</div>
+        <div class="tab" id="tback" onclick="setMode('back')">하교</div>
+      </div>
+      <div class="date-row" id="date-row"></div>
+      <div class="rgrid" id="rg"></div>
+      <div class="notice-box" id="rn"></div>
+      <button class="cta" id="rcta" disabled onclick="go('pay')">다음 — 결제하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 결제 -->
+<div class="screen" id="sc-pay">
+  <div class="phone">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('route')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 10L4 6l4-4" stroke="#777" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tb-title">결제</div><div style="width:26px"></div>
+    </div>
+    <div class="step-row">
+      <div class="sp"><div class="sp-dot" style="background:#1D9E75;color:#fff">✓</div><div class="sp-lbl" style="color:#1D9E75">노선 선택</div></div>
+      <div class="sp-line" style="background:#534AB7"></div>
+      <div class="sp"><div class="sp-dot" style="background:#534AB7;color:#fff">2</div><div class="sp-lbl" style="color:#534AB7">결제</div></div>
+      <div class="sp-line" style="background:#eee"></div>
+      <div class="sp"><div class="sp-dot" style="background:#eee;color:#aaa">3</div><div class="sp-lbl" style="color:#bbb">QR 승차권</div></div>
+    </div>
+    <div class="body">
+      <div class="icard">
+        <div class="irow"><span class="il">노선</span><span style="background:#eeecff;color:#534AB7;font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px">신도림 → 광명 → 학교</span></div>
+        <div class="irow"><span class="il">탑승일</span><span class="iv" id="pay-date"></span></div>
+        <div class="irow"><span class="il">출발</span><span class="iv">07:30 신도림역</span></div>
+        <div class="irow"><span class="il">잔여좌석</span><span style="color:#534AB7;font-weight:500">13 / 45</span></div>
+      </div>
+      <div class="sec-lbl">결제 수단</div>
+      <div class="pgrid">
+        <div class="pcard sel" id="pkakao" onclick="setPay('kakao')"><div class="picon" style="background:#FAE100;color:#3C1E00">K</div><div class="pname" style="color:#534AB7">카카오페이</div></div>
+        <div class="pcard" id="ptoss" onclick="setPay('toss')"><div class="picon" style="background:#0064FF;color:#fff">T</div><div class="pname">토스페이</div></div>
+        <div class="pcard" id="pbank" onclick="setPay('bank')"><div class="picon" style="background:#f0f0f0"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="6" width="12" height="7" rx="1.5" stroke="#888" stroke-width="1"/><path d="M4 6V5a3 3 0 016 0v1" stroke="#888" stroke-width="1"/></svg></div><div class="pname">계좌이체</div></div>
+      </div>
+      <div class="pay-hint" id="phint">카카오페이 앱으로 연결됩니다.</div>
+      <div class="divider"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:12px;color:#888">결제 금액</span>
+        <span style="font-size:22px;font-weight:500;color:#111">8,000원</span>
+      </div>
+      <button class="cta" id="pcta" onclick="go('ticket')">카카오페이로 결제</button>
+      <div style="font-size:10px;color:#bbb;text-align:center;margin-top:8px">결제 시 <span style="color:#999;text-decoration:underline;cursor:pointer">이용약관</span> 및 <span style="color:#999;text-decoration:underline;cursor:pointer">개인정보처리방침</span>에 동의합니다</div>
+    </div>
+  </div>
+</div>
+
+<!-- ④ QR 승차권 -->
+<div class="screen" id="sc-ticket">
+  <div class="phone">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('main')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 10L4 6l4-4" stroke="#777" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tb-title">내 승차권</div><div style="width:26px"></div>
+    </div>
+    <div class="step-row">
+      <div class="sp"><div class="sp-dot" style="background:#1D9E75;color:#fff">✓</div><div class="sp-lbl" style="color:#1D9E75">노선 선택</div></div>
+      <div class="sp-line" style="background:#1D9E75"></div>
+      <div class="sp"><div class="sp-dot" style="background:#1D9E75;color:#fff">✓</div><div class="sp-lbl" style="color:#1D9E75">결제</div></div>
+      <div class="sp-line" style="background:#534AB7"></div>
+      <div class="sp"><div class="sp-dot" style="background:#534AB7;color:#fff">3</div><div class="sp-lbl" style="color:#534AB7">QR 승차권</div></div>
+    </div>
+    <div class="body">
+      <div class="qr-card">
+        <div style="font-size:11px;font-weight:500;color:#888;margin-bottom:12px">탑승 QR — 기사님께 제시</div>
+        <div class="qr-wrap" id="qrg"></div>
+        <div style="font-size:9px;color:#aaa;font-family:monospace;margin-top:10px;letter-spacing:.04em">SHT-20250415-A042</div>
+        <div><span class="status-chip"><svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="#1D9E75"/></svg>결제완료</span></div>
+        <div style="font-size:9px;color:#aaa;margin-top:6px">07:45까지 유효 · 1회용</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="drow"><span class="dl">노선</span><span class="dv">신도림 → 광명 → 학교</span></div>
+        <div class="drow"><span class="dl">탑승일</span><span class="dv" id="ticket-date"></span></div>
+        <div class="drow"><span class="dl">출발</span><span class="dv">07:30 신도림역</span></div>
+        <div class="drow"><span class="dl">결제금액</span><span class="dv" style="color:#534AB7">8,000원</span></div>
+      </div>
+      <div class="tag-row">
+        <div class="tag">양도 불가</div>
+        <div class="tag">스캔 후 자동 만료</div>
+        <div class="tag">분실 시 재발급 불가</div>
+      </div>
+      <button class="live-btn" id="live-map-btn" onclick="goMapOrBlock()">
+        <div class="live-btn-icon"><div class="live-dot" style="width:10px;height:10px" id="live-map-dot"></div></div>
+        <div style="text-align:left">
+          <div style="font-size:12px;font-weight:500;color:#534AB7" id="live-map-title">실시간 버스 위치 확인</div>
+          <div style="font-size:10px;color:#888;margin-top:2px" id="live-map-sub">탭하여 지도 보기 ↗</div>
+        </div>
+      </button>
+      <button class="cta-ghost" onclick="go('main')">홈으로</button>
+    </div>
+  </div>
+</div>
+
+<!-- ⑥ 탑승이력 -->
+<div class="screen" id="sc-history">
+  <div class="phone">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('main')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 10L4 6l4-4" stroke="#777" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tb-title">탑승이력</div>
+      <button onclick="toggleHistFilter()" style="background:none;border:none;cursor:pointer;padding:4px"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><line x1="2" y1="4" x2="14" y2="4" stroke="#777" stroke-width="1.2" stroke-linecap="round"/><line x1="4" y1="8" x2="12" y2="8" stroke="#777" stroke-width="1.2" stroke-linecap="round"/><line x1="6" y1="12" x2="10" y2="12" stroke="#777" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="body" style="overflow-y:auto;max-height:580px">
+
+      <!-- 요약 통계 -->
+      <div class="hist-summary">
+        <div class="hs-box">
+          <div class="hs-val">12</div>
+          <div class="hs-lbl">총 탑승</div>
+        </div>
+        <div class="hs-box">
+          <div class="hs-val" style="color:#1D9E75">96,000</div>
+          <div class="hs-lbl">총 결제(원)</div>
+        </div>
+        <div class="hs-box">
+          <div class="hs-val" style="color:#EF9F27">1</div>
+          <div class="hs-lbl">예정 예약</div>
+        </div>
+      </div>
+
+      <!-- 필터 -->
+      <div class="hist-filter">
+        <div class="hf active" onclick="setHistFilter(this,'all')">전체</div>
+        <div class="hf" onclick="setHistFilter(this,'upcoming')">예정</div>
+        <div class="hf" onclick="setHistFilter(this,'done')">탑승완료</div>
+        <div class="hf" onclick="setHistFilter(this,'cancel')">취소/환불</div>
+      </div>
+      <!-- 이용노선 필터 -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
+        <select id="hist-dir" onchange="applyHistRouteFilter()" style="flex:1;padding:6px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:11px;color:#555;background:#fff;outline:none">
+          <option value="all">전체</option>
+          <option value="go">등교만</option>
+          <option value="back">하교만</option>
+        </select>
+        <select id="hist-route" onchange="applyHistRouteFilter()" style="flex:2;padding:6px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:11px;color:#555;background:#fff;outline:none">
+          <option value="all">전체 노선</option>
+          <option value="신도림·광명">신도림·광명</option>
+          <option value="사당·안산">사당·안산</option>
+          <option value="일산·송내">일산·송내</option>
+          <option value="수원·평택">수원·평택</option>
+          <option value="인천">인천</option>
+          <option value="천안·아산">천안·아산</option>
+        </select>
+      </div>
+
+      <!-- 이력 목록 -->
+      <div class="hist-list" id="histList">
+
+        <!-- 예정 -->
+        <div class="hcard" data-type="upcoming">
+          <div class="hcard-top" onclick="toggleHCard(this)">
+            <div class="hcard-badge" style="background:#eeecff">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" fill="#7F77DD"/><rect x="3" y="6" width="4" height="3" rx=".5" fill="#eeecff"/><rect x="8" y="6" width="4" height="3" rx=".5" fill="#eeecff"/></svg>
+            </div>
+            <div class="hcard-info">
+              <div class="hcard-route">신도림·광명 등교</div>
+              <div class="hcard-date">4/15 (화) · 07:30 출발 · 신도림역</div>
+            </div>
+            <div class="hcard-status">
+              <span class="hstatus hs-upcoming">예정</span>
+              <span style="font-size:10px;color:#534AB7;font-weight:500;margin-top:2px">8,000원</span>
+            </div>
+          </div>
+          <div class="hcard-detail">
+            <div class="hd-row"><span class="hd-l">결제일</span><span class="hd-v">2025. 4. 12</span></div>
+            <div class="hd-row"><span class="hd-l">결제수단</span><span class="hd-v">카카오페이</span></div>
+            <div class="hd-row"><span class="hd-l">승차권 번호</span><span class="hd-v" style="font-family:monospace;font-size:10px">SHT-20250415-A042</span></div>
+            <div class="hd-row"><span class="hd-l">좌석</span><span class="hd-v">지정석 없음 (선착순)</span></div>
+            <div class="hd-actions">
+              <div class="ha-btn primary" onclick="go('ticket')">QR 승차권 보기</div>
+              <div class="ha-btn danger" onclick="showCancelConfirm()">예약 취소</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 완료 1 -->
+        <div class="hcard" data-type="done">
+          <div class="hcard-top" onclick="toggleHCard(this)">
+            <div class="hcard-badge" style="background:#e8f8f0">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" fill="#1D9E75"/><rect x="3" y="6" width="4" height="3" rx=".5" fill="#e8f8f0"/><rect x="8" y="6" width="4" height="3" rx=".5" fill="#e8f8f0"/></svg>
+            </div>
+            <div class="hcard-info">
+              <div class="hcard-route">신도림·광명 등교</div>
+              <div class="hcard-date">4/14 (월) · 07:30 출발</div>
+            </div>
+            <div class="hcard-status">
+              <span class="hstatus hs-done">탑승완료</span>
+              <span style="font-size:10px;color:#888;margin-top:2px">8,000원</span>
+            </div>
+          </div>
+          <div class="hcard-detail">
+            <div class="hd-row"><span class="hd-l">실제 탑승 시간</span><span class="hd-v">07:32 (QR 스캔 완료)</span></div>
+            <div class="hd-row"><span class="hd-l">결제수단</span><span class="hd-v">카카오페이</span></div>
+            <div class="hd-row"><span class="hd-l">승차권 번호</span><span class="hd-v" style="font-family:monospace;font-size:10px">SHT-20250414-B031</span></div>
+            <div class="hd-row" style="padding-top:6px;border-top:1px solid #f0f0f0;margin-top:4px">
+              <span class="hd-l">환불 가능 여부</span>
+              <span style="font-size:10px;color:#E24B4A;font-weight:500">탑승 완료 · 환불 불가</span>
+            </div>
+            <div class="hd-actions">
+              <div class="ha-btn" onclick="showReceipt()">영수증 보기</div>
+              <div class="ha-btn" onclick="reBook()">동일 노선 재예약</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 완료 2 -->
+        <div class="hcard" data-type="done">
+          <div class="hcard-top" onclick="toggleHCard(this)">
+            <div class="hcard-badge" style="background:#e8f8f0">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" fill="#1D9E75"/><rect x="3" y="6" width="4" height="3" rx=".5" fill="#e8f8f0"/><rect x="8" y="6" width="4" height="3" rx=".5" fill="#e8f8f0"/></svg>
+            </div>
+            <div class="hcard-info">
+              <div class="hcard-route">사당·안산 등교</div>
+              <div class="hcard-date">4/11 (금) · 07:10 출발</div>
+            </div>
+            <div class="hcard-status">
+              <span class="hstatus hs-done">탑승완료</span>
+              <span style="font-size:10px;color:#888;margin-top:2px">8,000원</span>
+            </div>
+          </div>
+          <div class="hcard-detail">
+            <div class="hd-row"><span class="hd-l">실제 탑승 시간</span><span class="hd-v">07:10 (QR 스캔 완료)</span></div>
+            <div class="hd-row"><span class="hd-l">결제수단</span><span class="hd-v">토스페이</span></div>
+            <div class="hd-row"><span class="hd-l">승차권 번호</span><span class="hd-v" style="font-family:monospace;font-size:10px">SHT-20250411-C019</span></div>
+            <div class="hd-actions">
+              <div class="ha-btn" onclick="showReceipt()">영수증 보기</div>
+              <div class="ha-btn" onclick="reBook()">동일 노선 재예약</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 취소 -->
+        <div class="hcard" data-type="cancel">
+          <div class="hcard-top" onclick="toggleHCard(this)">
+            <div class="hcard-badge" style="background:#f5f5f5">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" fill="#ccc"/><rect x="3" y="6" width="4" height="3" rx=".5" fill="#f5f5f5"/><rect x="8" y="6" width="4" height="3" rx=".5" fill="#f5f5f5"/></svg>
+            </div>
+            <div class="hcard-info">
+              <div class="hcard-route">일산·송내 등교</div>
+              <div class="hcard-date">4/9 (수) · 06:50 출발</div>
+            </div>
+            <div class="hcard-status">
+              <span class="hstatus hs-cancel">취소</span>
+              <span style="font-size:10px;color:#bbb;margin-top:2px;text-decoration:line-through">8,000원</span>
+            </div>
+          </div>
+          <div class="hcard-detail">
+            <div class="hd-row"><span class="hd-l">취소 일시</span><span class="hd-v">2025. 4. 8 14:22</span></div>
+            <div class="hd-row"><span class="hd-l">취소 사유</span><span class="hd-v">사용자 취소</span></div>
+            <div class="hd-row"><span class="hd-l">환불 상태</span><span style="font-size:11px;color:#1D9E75;font-weight:500">환불 완료 (8,000원)</span></div>
+            <div class="hd-row"><span class="hd-l">환불 수단</span><span class="hd-v">카카오페이 → 원결제 취소</span></div>
+            <div class="hd-actions">
+              <div class="ha-btn" onclick="reBook()" style="flex:1">동일 노선 재예약</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 완료 3 -->
+        <div class="hcard" data-type="done">
+          <div class="hcard-top" onclick="toggleHCard(this)">
+            <div class="hcard-badge" style="background:#e8f8f0">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="11" rx="2" fill="#1D9E75"/><rect x="3" y="6" width="4" height="3" rx=".5" fill="#e8f8f0"/><rect x="8" y="6" width="4" height="3" rx=".5" fill="#e8f8f0"/></svg>
+            </div>
+            <div class="hcard-info">
+              <div class="hcard-route">신도림·광명 등교</div>
+              <div class="hcard-date">4/8 (화) · 07:30 출발</div>
+            </div>
+            <div class="hcard-status">
+              <span class="hstatus hs-done">탑승완료</span>
+              <span style="font-size:10px;color:#888;margin-top:2px">8,000원</span>
+            </div>
+          </div>
+          <div class="hcard-detail">
+            <div class="hd-row"><span class="hd-l">실제 탑승 시간</span><span class="hd-v">07:31 (QR 스캔 완료)</span></div>
+            <div class="hd-row"><span class="hd-l">결제수단</span><span class="hd-v">카카오페이</span></div>
+            <div class="hd-row"><span class="hd-l">승차권 번호</span><span class="hd-v" style="font-family:monospace;font-size:10px">SHT-20250408-A029</span></div>
+            <div class="hd-actions">
+              <div class="ha-btn" onclick="showReceipt()">영수증 보기</div>
+              <div class="ha-btn" onclick="reBook()">동일 노선 재예약</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:10px 0;font-size:11px;color:#ccc">— 2025년 4월 이력 표시 중 —</div>
+
+      </div>
+    </div>
+
+    <!-- 영수증 모달 -->
+    <div class="bs-overlay" id="rcptOv" onclick="hideReceipt(event)" style="display:none">
+      <div class="bs">
+        <div class="bs-handle"></div>
+        <div style="text-align:center;margin-bottom:14px">
+          <div style="font-size:13px;font-weight:600;color:#111;margin-bottom:2px">영수증</div>
+          <div style="font-size:10px;color:#bbb;font-family:monospace">SHT-20250414-B031</div>
+        </div>
+        <div class="bs-row"><span class="bs-l">상품명</span><span class="bs-v">셔틀버스 승차권</span></div>
+        <div class="bs-row"><span class="bs-l">노선</span><span class="bs-v">신도림 → 광명 → 학교</span></div>
+        <div class="bs-row"><span class="bs-l">탑승일</span><span class="bs-v">2025. 4. 14 (월)</span></div>
+        <div class="bs-row"><span class="bs-l">결제일시</span><span class="bs-v">2025. 4. 13 22:14</span></div>
+        <div class="bs-row"><span class="bs-l">결제수단</span><span class="bs-v">카카오페이</span></div>
+        <div class="bs-row" style="border-top:2px solid #111;margin-top:6px;padding-top:10px">
+          <span style="font-size:13px;font-weight:600;color:#111">결제금액</span>
+          <span style="font-size:16px;font-weight:600;color:#534AB7">8,000원</span>
+        </div>
+        <div style="font-size:9px;color:#bbb;text-align:center;margin-top:10px">세한대학교 셔틀버스 · 사업자번호 000-00-00000</div>
+        <button class="bs-close" onclick="hideReceipt(null)">닫기</button>
+      </div>
+    </div>
+
+    <!-- 취소 확인 모달 -->
+    <div class="bs-overlay" id="cancelOv" onclick="hideCancelConfirm(event)" style="display:none">
+      <div class="bs">
+        <div class="bs-handle"></div>
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:22px;margin-bottom:8px">⚠️</div>
+          <div style="font-size:13px;font-weight:600;color:#111;margin-bottom:4px">예약을 취소하시겠어요?</div>
+          <div style="font-size:11px;color:#888;line-height:1.5">출발 24시간 전까지 전액 환불<br>이후 취소 시 환불 불가</div>
+        </div>
+        <div style="background:#f7f7f7;border-radius:10px;padding:10px 12px;margin-bottom:14px">
+          <div class="bs-row" style="border:none;padding:2px 0"><span class="bs-l">노선</span><span class="bs-v">신도림 → 광명 → 학교</span></div>
+          <div class="bs-row" style="padding:2px 0"><span class="bs-l">탑승일</span><span class="bs-v">2025. 4. 15 (화)</span></div>
+          <div class="bs-row" style="padding:2px 0"><span class="bs-l">환불 예상액</span><span style="font-size:12px;font-weight:600;color:#1D9E75">8,000원 (전액)</span></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="hideCancelConfirm(null)" style="flex:1;padding:11px;border-radius:10px;border:1px solid #ddd;background:#fff;color:#555;font-size:12px;font-weight:500;cursor:pointer">돌아가기</button>
+          <button onclick="confirmCancel()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#E24B4A;color:#fff;font-size:12px;font-weight:500;cursor:pointer">취소 확정</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ⑤ 실시간 지도 -->
+<div class="screen" id="sc-map">
+  <div class="phone" style="position:relative">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('ticket')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 10L4 6l4-4" stroke="#777" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tb-title">신도림·광명 등교</div>
+      <div id="live-badge" style="display:flex;align-items:center;gap:4px;background:#f5f5f5;border:0.5px solid #ddd;border-radius:20px;padding:3px 9px;font-size:10px;color:#999;font-weight:500"><div class="live-dot" style="background:#ccc"></div>대기중</div>
+    </div>
+    <!-- Leaflet 지도 -->
+    <div class="map-area" style="height:240px">
+      <div id="leaflet-map" style="width:100%;height:100%"></div>
+      <!-- SSE 토스트 -->
+      <div class="sw-toast" id="mtoast" style="z-index:1000">광명 통과 — 학교까지 자동 갱신</div>
+      <!-- 내 탑승 뱃지 -->
+      <div class="my-badge-map" style="z-index:1000"><div style="font-size:10px;color:#534AB7;font-weight:600">내 탑승 · 신도림역</div><div style="font-size:9px;color:#888;margin-top:1px">07:30 출발</div></div>
+      <!-- SSE 서버 URL 입력 패널 -->
+      <div id="sse-panel" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(255,255,255,.95);border-radius:10px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.12);width:200px">
+        <div style="font-size:9px;color:#888;margin-bottom:4px">서버 URL (ngrok 주소)</div>
+        <input id="sse-url" type="text" placeholder="https://xxxx.ngrok-free.app" style="width:100%;font-size:10px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;outline:none"/>
+        <div style="display:flex;gap:4px;margin-top:5px">
+          <button onclick="connectSSE()" style="flex:1;padding:4px;border-radius:6px;background:#534AB7;color:#fff;font-size:10px;border:none;cursor:pointer">연결</button>
+          <button onclick="startSim()" style="flex:1;padding:4px;border-radius:6px;background:#f0f0f0;color:#555;font-size:10px;border:none;cursor:pointer">시뮬</button>
+        </div>
+      </div>
+      <!-- 버스 정보 오버레이 -->
+      <div class="bs-overlay" id="bsov" onclick="hideBusInfo(event)" style="z-index:1001">
+        <div class="bs">
+          <div class="bs-handle"></div>
+          <div class="bs-title">🚌 신도림·광명 노선 버스</div>
+          <div class="bs-row"><span class="bs-l">현재 구간</span><span class="bs-v" id="bs-seg">신도림 → 광명</span></div>
+          <div class="bs-row"><span class="bs-l">다음 정류장</span><span class="bs-v" id="bs-next">광명 (07:50)</span></div>
+          <div class="bs-row"><span class="bs-l">예상 도착</span><span class="bs-v" id="bs-eta">약 18분 후</span></div>
+          <div class="bs-row"><span class="bs-l">현재 속도</span><span class="bs-v" id="bs-spd">— km/h</span></div>
+          <div class="bs-row"><span class="bs-l">탑승 인원</span><span class="bs-v">32 / 45명</span></div>
+          <button class="bs-close" onclick="hideBusInfo(null)">닫기</button>
+        </div>
+      </div>
+    </div>
+    <!-- ETA 패널 -->
+    <div class="eta-panel">
+      <div class="eta-main">
+        <div class="eta-icon" id="meta-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="6" width="16" height="11" rx="3" fill="#7F77DD"/><rect x="3" y="8" width="5" height="4" rx=".5" fill="#eeecff"/><rect x="9" y="8" width="5" height="4" rx=".5" fill="#eeecff"/><rect x="2" y="15" width="4" height="2" rx="1" fill="#AFA9EC"/><rect x="14" y="15" width="4" height="2" rx="1" fill="#AFA9EC"/></svg></div>
+        <div>
+          <div style="font-size:11px;color:#888;margin-bottom:1px"><span id="meta-dest" style="font-weight:500;color:#534AB7">광명</span>까지</div>
+          <div style="font-size:24px;font-weight:500;color:#111;line-height:1" id="meta-num">—<small style="font-size:12px;font-weight:400;color:#888;margin-left:1px">분</small></div>
+          <div style="font-size:10px;color:#bbb;margin-top:2px" id="meta-spd">GPS 연결 대기중</div>
+        </div>
+      </div>
+      <div class="st-track">
+        <div class="std"><div class="std-dot done" id="msd0"></div><div class="std-name done" id="msn0">신도림</div></div>
+        <div class="st-line-w"><div class="st-line-fill" id="mlf0"></div></div>
+        <div class="std"><div class="std-dot next" id="msd1"></div><div class="std-name next" id="msn1">광명</div></div>
+        <div class="st-line-w"><div class="st-line-fill" id="mlf1"></div></div>
+        <div class="std"><div class="std-dot school" id="msd2"></div><div class="std-name school" id="msn2">학교</div></div>
+      </div>
+    </div>
+    <div class="map-ctrl">
+      <button class="mbtn primary" onclick="connectSSE()">GPS 연결</button>
+      <button class="mbtn" onclick="startSim()">시뮬레이션</button>
+      <button class="mbtn" onclick="resetMap()">초기화</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 노선 데이터 & 공통 UI ───────────────────────────────────────────
+const routes=[
+  {id:1,name:'신도림·광명',busId:'BUS-001',go:[{l:'신도림',t:'07:30',lat:37.5087,lng:126.8912},{l:'광명',t:'07:50',lat:37.4786,lng:126.8666},{l:'학교',t:'',lat:36.7231,lng:126.6578}],back:[{l:'학교',t:'17:10',lat:36.7231,lng:126.6578},{l:'광명',t:'',lat:37.4786,lng:126.8666},{l:'신도림',t:'',lat:37.5087,lng:126.8912}],total:45,taken:32,busAt:55},
+  {id:2,name:'사당·안산',busId:'BUS-002',go:[{l:'사당',t:'07:10',lat:37.4847,lng:126.9818},{l:'안산',t:'08:00',lat:37.3219,lng:126.8309},{l:'학교',t:'',lat:36.7231,lng:126.6578}],back:[{l:'학교',t:'17:10',lat:36.7231,lng:126.6578},{l:'안산',t:'',lat:37.3219,lng:126.8309},{l:'사당',t:'',lat:37.4847,lng:126.9818}],total:40,taken:37,busAt:80},
+  {id:3,name:'일산·송내',busId:'BUS-003',go:[{l:'일산',t:'06:50',lat:37.6558,lng:126.7722},{l:'송내',t:'07:40',lat:37.4785,lng:126.7541},{l:'학교',t:'',lat:36.7231,lng:126.6578}],back:[{l:'학교',t:'17:10',lat:36.7231,lng:126.6578},{l:'송내',t:'',lat:37.4785,lng:126.7541},{l:'일산',t:'',lat:37.6558,lng:126.7722}],total:45,taken:15,busAt:30},
+  {id:4,name:'수원·평택',busId:'BUS-004',go:[{l:'수원',t:'07:20',lat:37.2636,lng:127.0286},{l:'평택',t:'08:40',lat:36.9921,lng:127.1129},{l:'학교',t:'',lat:36.7231,lng:126.6578}],back:[{l:'학교',t:'17:10',lat:36.7231,lng:126.6578},{l:'평택',t:'',lat:36.9921,lng:127.1129},{l:'수원',t:'',lat:37.2636,lng:127.0286}],total:50,taken:50,busAt:0},
+  {id:5,name:'인천',busId:'BUS-005',go:[{l:'인천',t:'07:50',lat:37.4563,lng:126.7052},{l:'학교',t:'',lat:36.7231,lng:126.6578}],back:[{l:'학교',t:'17:10',lat:36.7231,lng:126.6578},{l:'인천',t:'',lat:37.4563,lng:126.7052}],total:35,taken:20,busAt:40},
+  {id:6,name:'천안·아산',busId:'BUS-006',go:[{l:'천안',t:'08:00',lat:36.8151,lng:127.1139},{l:'아산',t:'08:30',lat:36.7898,lng:127.0044},{l:'학교',t:'',lat:36.7231,lng:126.6578}],back:[{l:'학교',t:'17:10',lat:36.7231,lng:126.6578},{l:'아산',t:'',lat:36.7898,lng:127.0044},{l:'천안',t:'',lat:36.8151,lng:127.1139}],total:45,taken:42,busAt:90},
+  {id:7,name:'테스트 노선',busId:'TEST-001',go:[{l:'출발',t:'',lat:37.6031755,lng:127.0393490},{l:'경유',t:'',lat:37.6017059,lng:127.0405795},{l:'도착',t:'',lat:37.6032954,lng:127.0420344}],back:[{l:'도착',t:'',lat:37.6032954,lng:127.0420344},{l:'경유',t:'',lat:37.6017059,lng:127.0405795},{l:'출발',t:'',lat:37.6031755,lng:127.0393490}],total:10,taken:3,busAt:0,isTest:true},
+];
+let rMode='go',selR=null;
+function bc(t,n){const r=n-t;return r===0?'bf':r<=5?'ba':'bg'}
+function bt(t,n){const r=n-t;return r===0?'마감':r<=5?'마감임박':'예약가능'}
+function bclr(t,n){const r=t/n;return r>=1?'#E24B4A':r>=.88?'#EF9F27':'#534AB7'}
+const busSVG=`<svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="1" width="14" height="9" rx="2" fill="#534AB7"/><rect x="1" y="3" width="4" height="3" rx=".5" fill="#AFA9EC"/><rect x="6" y="3" width="4" height="3" rx=".5" fill="#AFA9EC"/><rect x="1" y="9" width="3" height="2" rx="1" fill="#3C3489"/><rect x="10" y="9" width="3" height="2" rx="1" fill="#3C3489"/><rect x="14" y="4" width="2" height="2" rx=".5" fill="#EF9F27"/></svg>`;
+function renderRoutes(){
+  const g=document.getElementById('rg');
+
+  // 운행없음 (주말/공휴일/금요일 선택 시)
+  if (!selectedDateCanOperate) {
+    g.innerHTML = routes.map(r => `
+      <div class="rc" style="opacity:.55;cursor:default;pointer-events:none">
+        <div class="rhead">
+          <span class="rname" style="color:#aaa">${r.name}</span>
+          <span class="badge" style="background:#f0f0f0;color:#bbb;border-color:#e0e0e0">운행없음</span>
+        </div>
+        <div class="stop-row">
+          <div class="sdot s-start" style="background:#ddd;border-color:#ddd"></div>
+          <div class="seg-wrap"><div class="seg-line" style="background:#e8e8e8"></div></div>
+          <div class="sdot s-end" style="background:#ddd;border-color:#ddd"></div>
+        </div>
+        <div class="ms-names" style="color:#ccc">
+          ${(rMode==='go'?r.go:r.back).map((s,i,a)=>`<span style="text-align:${i===0?'left':i===a.length-1?'right':'center'};flex:1">${s.l}</span>`).join('')}
+        </div>
+        <div class="seat-txt" style="color:#ccc"><span>잔여좌석</span><span>— / —</span></div>
+        <div class="sbar"><div class="sfill" style="width:0%;background:#e0e0e0"></div></div>
+      </div>`).join('');
+    document.getElementById('rcta').disabled = true;
+    document.getElementById('rn').textContent = '선택한 날짜에는 운행이 없습니다.';
+    return;
+  }
+
+  g.innerHTML=routes.map(r=>{
+    const stops=rMode==='go'?r.go:r.back,rem=r.total-r.taken;
+    const isFull=rem===0,isSel=selR===r.id,pct=Math.round(r.taken/r.total*100);
+    const sc=stops.length;
+    const totalSegs=sc-1;
+    const atSeg=r.busAt/100*totalSegs;
+    const curSegIdx=Math.min(Math.floor(atSeg),totalSegs-1);
+    const curSegPct=Math.round((atSeg-curSegIdx)*100);
+    let sh='<div class="stop-row">';
+    stops.forEach((s,i)=>{
+      const isPassed=atSeg>i+0.05;
+      let dotCls='sdot ';
+      if(i===0) dotCls+='s-start';
+      else if(i===sc-1) dotCls+='s-end';
+      else dotCls+='s-mid'+(isPassed?' passed':'');
+      sh+=`<div class="${dotCls}"></div>`;
+      if(i<sc-1){
+        const isFullPassed=atSeg>=i+1;
+        const isCurrent=curSegIdx===i;
+        const fillPct=isFullPassed?100:isCurrent?curSegPct:0;
+        const busLeft=isCurrent && selectedDateIsToday?curSegPct:null;
+        sh+=`<div class="seg-wrap">
+          <div class="seg-line"></div>
+          <div class="seg-fill" style="width:${fillPct}%"></div>
+          ${busLeft!==null?`<div class="bus-icon" style="left:${busLeft}%">${busSVG}</div>`:''}
+        </div>`;
+      }
+    });
+    sh+='</div>';
+    sh+='<div class="ms-names">'+stops.map((s,i)=>`<span style="text-align:${i===0?'left':i===sc-1?'right':'center'};flex:1">${s.l}${s.t?`<br><span style="font-size:8px;color:#bbb">${s.t}</span>`:''}</span>`).join('')+'</div>';
+    return `<div class="rc${isSel?' sel':''}${isFull?' full':''}" onclick="selRoute(${r.id},${isFull})">
+      <div class="rhead"><span class="rname">${r.name}</span><span class="badge ${bc(r.taken,r.total)}">${bt(r.taken,r.total)}</span></div>
+      ${sh}
+      <div class="seat-txt"><span>잔여좌석</span><span style="color:${isFull?'#E24B4A':rem<=5?'#EF9F27':'#534AB7'};font-weight:500">${rem} / ${r.total}</span></div>
+      <div class="sbar"><div class="sfill" style="width:${pct}%;background:${bclr(r.taken,r.total)}"></div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('rn').textContent=rMode==='go'
+    ?'예약 가능: 월~금 09:00 ~ 15:00 · 카드/카카오페이/계좌이체 결제 가능'
+    :'하교는 17:10 학교 출발 후 역순 경유 · 당일 12:00까지 예약 마감';
+}
+function selRoute(id,isFull){if(isFull)return;selR=selR===id?null:id;renderRoutes();document.getElementById('rcta').disabled=!selR;}
+function setMode(m){rMode=m;selR=null;document.getElementById('tgo').className='tab'+(m==='go'?' active':'');document.getElementById('tback').className='tab'+(m==='back'?' active':'');document.getElementById('rcta').disabled=true;renderRoutes();}
+const pat=[1,1,1,0,1,0,1,1,1,1,0,1,0,0,1,1,0,1,1,0,1,1,0,0,1,0,1,0,0,0,1,1,0,1,0,1,1,1,0,0,1,1,1,0,0,1,0,1,1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1,1,0,1,0,1,0,1,1,0,1,0,1,1,1,0,0,1];
+const qg=document.getElementById('qrg');
+pat.forEach(v=>{const c=document.createElement('div');c.className='qc';c.style.background=v?'#fff':'#111';qg.appendChild(c);});
+const hints={kakao:'카카오페이 앱으로 연결됩니다.',toss:'토스 앱으로 연결됩니다.',bank:'가상계좌가 발급됩니다.'};
+const pls={kakao:'카카오페이로 결제',toss:'토스페이로 결제',bank:'계좌이체로 결제'};
+function setTiming(t){['pre','post'].forEach(k=>{const el=document.getElementById('t'+k);el.className='tcard'+(k===t?' sel':'');el.querySelector('div').style.color=k===t?'#534AB7':'#666';});}
+function setPay(m){['kakao','toss','bank'].forEach(k=>{const el=document.getElementById('p'+k);el.className='pcard'+(k===m?' sel':'');el.querySelector('.pname').style.color=k===m?'#534AB7':'#666';});document.getElementById('phint').textContent=hints[m];document.getElementById('pcta').textContent=pls[m];}
+
+// ── 화면 네비 ───────────────────────────────────────────────────────
+const navIds=['sehan','main','route','pay','ticket','map','history'];
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sc-'+id).classList.add('active');
+  navIds.forEach(n=>{const el=document.getElementById('fn-'+n);if(!el)return;const cur=navIds.indexOf(id),idx=navIds.indexOf(n);el.className='fn'+(n===id?' active':idx<cur?' done':'');});
+  if(id==='route')renderRoutes();
+  if(id==='map'){
+    setTimeout(()=>{
+      // 선택된 노선으로 지도 초기화
+      const route = routes.find(r => r.id === selR) || routes.find(r => r.isTest);
+      if(route) setMapRoute(route);
+      if(!leafletMap){initLeaflet();}
+      else{leafletMap.invalidateSize();}
+    },100);
+  }
+}
+function toggleHCard(topEl){const detail=topEl.nextElementSibling;detail.classList.toggle('open');}
+function setHistFilter(el,type){document.querySelectorAll('.hf').forEach(f=>f.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.hcard').forEach(c=>{if(type==='all'||c.dataset.type===type){c.style.display='block';}else{c.style.display='none';}});}
+function toggleHistFilter(){}
+function showReceipt(){const ov=document.getElementById('rcptOv');ov.style.display='flex';}
+function hideReceipt(e){if(!e||e.target===document.getElementById('rcptOv'))document.getElementById('rcptOv').style.display='none';}
+function showCancelConfirm(){document.getElementById('cancelOv').style.display='flex';}
+function hideCancelConfirm(e){if(!e||e.target===document.getElementById('cancelOv'))document.getElementById('cancelOv').style.display='none';}
+function confirmCancel(){hideCancelConfirm(null);alert('예약이 취소되었습니다. 환불은 3~5 영업일 내 처리됩니다.');}
+function reBook(){go('route');}
+function showBusInfo(){document.getElementById('bsov').classList.add('show');}
+function hideBusInfo(e){if(!e||e.target===document.getElementById('bsov'))document.getElementById('bsov').classList.remove('show');}
+
+// ── ⑤ 실시간 지도: Leaflet + SSE ───────────────────────────────────
+
+// 현재 지도에 표시 중인 노선 (기본: 테스트 노선)
+let currentMapRoute = null;
+let STOPS = [
+  {name:'출발', lat:37.6031755, lng:127.0393490},
+  {name:'경유', lat:37.6017059, lng:127.0405795},
+  {name:'도착', lat:37.6032954, lng:127.0420344},
+];
+
+// 시뮬용 경로 (현재 STOPS 기반으로 동적 생성)
+let SIM_PATH = STOPS.map(s => [s.lat, s.lng]);
+
+// 노선 변경 시 지도 재설정
+function setMapRoute(route) {
+  if (currentMapRoute && currentMapRoute.id === route.id) return;
+  currentMapRoute = route;
+  const stops = rMode === 'go' ? route.go : route.back;
+  STOPS = stops.map(s => ({name: s.l, lat: s.lat, lng: s.lng}));
+  SIM_PATH = STOPS.map(s => [s.lat, s.lng]);
+
+  // 지도 topbar 노선명 업데이트
+  const titleEl = document.querySelector('#sc-map .tb-title');
+  if (titleEl) titleEl.textContent = route.name + (rMode === 'go' ? ' 등교' : ' 하교');
+
+  // 정류장 트래커 업데이트
+  const names = ['msn0','msn1','msn2'];
+  STOPS.forEach((s,i) => {
+    const el = document.getElementById(names[i]);
+    if (el) el.textContent = s.name;
+  });
+
+  // SSE 재연결 (해당 노선 busId로)
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  resetMap();
+
+  // 지도 마커 초기화
+  if (leafletMap) {
+    reinitMapMarkers();
+  }
+
+  // busId SSE 자동 연결
+  autoConnectBusSSE(route.busId);
+}
+
+function autoConnectBusSSE(busId) {
+  if (sseSource) sseSource.close();
+  const url = 'http://localhost:3000';
+  sseSource = new EventSource(`${url}/stream?busId=${busId}`);
+  sseSource.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      const badge = document.getElementById('live-badge');
+      badge.innerHTML = '<div class="live-dot"></div>실시간';
+      badge.style.background='#e8f8f0';badge.style.borderColor='#1D9E75';badge.style.color='#0a6a3a';
+      document.getElementById('sse-panel').style.display = 'none';
+      updateBusPosition(d.lat, d.lng, d.speed);
+    } catch(err){}
+  };
+  sseSource.onerror = () => {
+    const badge = document.getElementById('live-badge');
+    badge.innerHTML = '<div class="live-dot" style="background:#ccc"></div>대기중';
+  };
+}
+
+function reinitMapMarkers() {
+  // 기존 마커/레이어 제거
+  if (busMarker) { leafletMap.removeLayer(busMarker); busMarker = null; }
+  if (routePolyline) { leafletMap.removeLayer(routePolyline); routePolyline = null; }
+  leafletMap.eachLayer(layer => {
+    if (layer instanceof L.Marker) leafletMap.removeLayer(layer);
+  });
+
+  // 새 경로/마커 추가
+  routePolyline = L.polyline(SIM_PATH, {
+    color: '#AFA9EC', weight: 4, opacity: 0.5, dashArray: '8 6'
+  }).addTo(leafletMap);
+
+  STOPS.forEach((s, i) => {
+    const isPassed = i === 0;
+    const isLast = i === STOPS.length - 1;
+    const html = `<div class="lf-stop-pin">
+      <div class="lf-stop-lbl ${isPassed?'passed':isLast?'':''}">${s.name}</div>
+      <div class="lf-stop-dot ${isPassed?'passed':isLast?'school':'active'}"></div>
+    </div>`;
+    const icon = L.divIcon({className:'', html, iconAnchor:[0,0]});
+    L.marker([s.lat, s.lng], {icon, interactive:false}).addTo(leafletMap);
+  });
+
+  const busHtml = `<div style="position:relative;width:34px;height:34px">
+    <div class="lf-bus-pulse"></div>
+    <div class="lf-bus-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="9" rx="2" fill="#fff"/><rect x="3" y="5" width="3" height="3" rx=".5" fill="#534AB7"/><rect x="7" y="5" width="3" height="3" rx=".5" fill="#534AB7"/><rect x="2" y="11" width="3" height="2" rx="1" fill="#AFA9EC"/><rect x="11" y="11" width="3" height="2" rx="1" fill="#AFA9EC"/></svg></div>
+  </div>`;
+  const busIcon = L.divIcon({className:'', html:busHtml, iconAnchor:[17,17]});
+  busMarker = L.marker([STOPS[0].lat, STOPS[0].lng], {icon:busIcon, zIndexOffset:1000})
+    .addTo(leafletMap).on('click', showBusInfo);
+
+  leafletMap.setView([STOPS[0].lat, STOPS[0].lng], 15);
+  phase = 0; simIdx = 0;
+}
+
+let leafletMap = null;
+let busMarker = null;
+let routePolyline = null;
+let sseSource = null;
+let simId = null;
+let simIdx = 0;
+let phase = 0;
+
+function initLeaflet() {
+  if (leafletMap) return;
+  if (typeof L === 'undefined') {
+    setTimeout(initLeaflet, 500);
+    return;
+  }
+  const mapEl = document.getElementById('leaflet-map');
+  leafletMap = L.map(mapEl, {
+    center: [STOPS[0].lat, STOPS[0].lng],
+    zoom: 15,
+    zoomControl: true,
+    attributionControl: false,
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+  }).addTo(leafletMap);
+  reinitMapMarkers();
+}
+
+function updateBusPosition(lat, lng, speed) {
+  if (!leafletMap || !busMarker) return;
+  busMarker.setLatLng([lat, lng]);
+  leafletMap.panTo([lat, lng], {animate:true, duration:0.8});
+
+  const spd = speed || 30;
+
+  // 현재 위치가 몇 번째 구간인지 판단 (Haversine)
+  let curSeg = 0;
+  let minDist = Infinity;
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const dFromEnd = L.latLng(lat,lng).distanceTo(L.latLng(STOPS[i+1].lat, STOPS[i+1].lng));
+    const segLen   = L.latLng(STOPS[i].lat, STOPS[i].lng).distanceTo(L.latLng(STOPS[i+1].lat, STOPS[i+1].lng));
+    const dFromStart = L.latLng(lat,lng).distanceTo(L.latLng(STOPS[i].lat, STOPS[i].lng));
+    const perp = Math.abs(dFromStart + dFromEnd - segLen);
+    if (perp < minDist) { minDist = perp; curSeg = i; }
+  }
+
+  const nextStop = STOPS[curSeg + 1];
+  const distToNext = L.latLng(lat,lng).distanceTo(L.latLng(nextStop.lat, nextStop.lng)) / 1000;
+  const distToLast = L.latLng(lat,lng).distanceTo(L.latLng(STOPS[STOPS.length-1].lat, STOPS[STOPS.length-1].lng)) / 1000;
+  const etaNext = Math.max(Math.round(distToNext / spd * 60), 1);
+  const etaLast = Math.max(Math.round(distToLast / spd * 60), 1);
+  const arrived = distToLast < 0.05;
+
+  // ETA 패널 업데이트
+  const destName = curSeg === STOPS.length - 2 ? STOPS[STOPS.length-1].name : nextStop.name;
+  document.getElementById('meta-dest').textContent = destName;
+  document.getElementById('meta-dest').style.color = curSeg === STOPS.length - 2 ? '#1D9E75' : '#534AB7';
+  document.getElementById('meta-num').innerHTML = arrived ? '도착' :
+    etaLast + '<small style="font-size:12px;font-weight:400;color:#888;margin-left:1px">분</small>';
+  document.getElementById('meta-spd').textContent = 'GPS 실시간 · ' + Math.round(spd) + ' km/h';
+
+  // 구간 진행 바 업데이트
+  const fillIds = ['mlf0','mlf1'];
+  const dotIds  = ['msd0','msd1','msd2'];
+  const nameIds = ['msn0','msn1','msn2'];
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const segLen = L.latLng(STOPS[i].lat, STOPS[i].lng).distanceTo(L.latLng(STOPS[i+1].lat, STOPS[i+1].lng));
+    const dFromEnd = L.latLng(lat,lng).distanceTo(L.latLng(STOPS[i+1].lat, STOPS[i+1].lng));
+    const pct = i < curSeg ? 1 : i === curSeg ? Math.min(1 - dFromEnd/segLen, 1) : 0;
+    if (fillIds[i]) document.getElementById(fillIds[i]).style.transform = `scaleX(${Math.max(0,pct).toFixed(2)})`;
+    if (dotIds[i] && i <= curSeg) {
+      document.getElementById(dotIds[i]).className = 'std-dot done';
+      document.getElementById(nameIds[i]).className = 'std-name done';
+    }
+  }
+
+  // 바텀시트 업데이트
+  document.getElementById('bs-seg').textContent = `${STOPS[curSeg].name} → ${nextStop.name}`;
+  document.getElementById('bs-next').textContent = `${nextStop.name} (약 ${etaNext}분)`;
+  document.getElementById('bs-eta').textContent = arrived ? '도착' : `약 ${etaLast}분 후`;
+  document.getElementById('bs-spd').textContent = Math.round(spd) + ' km/h';
+
+  // 중간 정류장 통과 토스트
+  if (curSeg > 0 && curSeg !== phase) {
+    phase = curSeg;
+    showToast(`${STOPS[curSeg].name} 통과 — ${STOPS[STOPS.length-1].name}까지 자동 갱신`);
+  }
+}
+
+function connectSSE() {
+  const url = document.getElementById('sse-url').value.trim();
+  if (!url) { alert('ngrok URL을 입력하세요 (예: https://xxxx.ngrok-free.app)'); return; }
+  if (sseSource) sseSource.close();
+  stopSim();
+  if (!leafletMap) initLeaflet();
+
+  const badge = document.getElementById('live-badge');
+  badge.innerHTML = '<div class="live-dot" style="background:#EF9F27"></div>연결중';
+  badge.style.background = '#fff4e0'; badge.style.borderColor = '#EF9F27'; badge.style.color = '#8a4a00';
+
+  sseSource = new EventSource(url + '/stream');
+  sseSource.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      badge.innerHTML = '<div class="live-dot"></div>실시간';
+      badge.style.background = '#e8f8f0'; badge.style.borderColor = '#1D9E75'; badge.style.color = '#0a6a3a';
+      document.getElementById('sse-panel').style.display = 'none';
+      updateBusPosition(d.lat, d.lng, d.speed);
+    } catch(err) { console.error('SSE 파싱 오류:', err); }
+  };
+  sseSource.onerror = () => {
+    badge.innerHTML = '<div class="live-dot" style="background:#E24B4A"></div>연결 실패';
+    badge.style.background = '#fff0f0'; badge.style.borderColor = '#E24B4A'; badge.style.color = '#a32d2d';
+  };
+}
+
+// 시뮬레이션 (실제 GPS 없을 때 데모용)
+function startSim() {
+  if (!leafletMap) initLeaflet();
+  stopSim();
+  phase = 0;
+  simIdx = 0;
+  document.getElementById('sse-panel').style.display = 'none';
+  const badge = document.getElementById('live-badge');
+  badge.innerHTML = '<div class="live-dot"></div>시뮬';
+  badge.style.background = '#e8f8f0'; badge.style.borderColor = '#1D9E75'; badge.style.color = '#0a6a3a';
+
+  function tick() {
+    if (simIdx >= SIM_PATH.length) { simIdx = SIM_PATH.length - 1; return; }
+    const [lat, lng] = SIM_PATH[simIdx];
+    updateBusPosition(lat, lng, 45 + Math.random() * 20);
+    simIdx++;
+    simId = setTimeout(tick, 1500);
+  }
+  tick();
+}
+
+function stopSim() {
+  if (simId) { clearTimeout(simId); simId = null; }
+}
+
+function resetMap() {
+  stopSim();
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  phase = 0; simIdx = 0;
+  if (busMarker) busMarker.setLatLng([STOPS[0].lat, STOPS[0].lng]);
+  if (leafletMap) leafletMap.setView([37.47, 126.87], 11);
+  document.getElementById('mlf0').style.transform = 'scaleX(0)';
+  document.getElementById('mlf1').style.transform = 'scaleX(0)';
+  document.getElementById('msd1').className = 'std-dot next';
+  document.getElementById('msn1').className = 'std-name next';
+  document.getElementById('meta-num').innerHTML = '—<small style="font-size:12px;font-weight:400;color:#888;margin-left:1px">분</small>';
+  document.getElementById('meta-spd').textContent = 'GPS 연결 대기중';
+  document.getElementById('meta-dest').textContent = '광명';
+  document.getElementById('meta-dest').style.color = '#534AB7';
+  const badge = document.getElementById('live-badge');
+  badge.innerHTML = '<div class="live-dot" style="background:#ccc"></div>대기중';
+  badge.style.background = '#f5f5f5'; badge.style.borderColor = '#ddd'; badge.style.color = '#999';
+  document.getElementById('sse-panel').style.display = 'block';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('mtoast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ── 날짜 실시간 적용 ──────────────────────────────
+const DAYS = ['일','월','화','수','목','금','토'];
+let selectedDateIsToday = true;
+let selectedDateCanOperate = true; // 오늘 포함 평일이면 true
+
+function formatDate(d) {
+  return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()} (${DAYS[d.getDay()]})`;
+}
+function formatShort(d) {
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+// 2025~2026 한국 공휴일 (MM-DD 형식)
+const HOLIDAYS = new Set([
+  '2025-01-01','2025-01-28','2025-01-29','2025-01-30',
+  '2025-03-01','2025-05-05','2025-05-06','2025-06-06',
+  '2025-08-15','2025-10-03','2025-10-06','2025-10-07','2025-10-08','2025-10-09',
+  '2025-12-25',
+  '2026-01-01','2026-01-28','2026-01-29','2026-01-30',
+  '2026-03-01','2026-05-05','2026-06-06',
+  '2026-08-15','2026-09-24','2026-09-25','2026-09-26',
+  '2026-10-09','2026-12-25',
+]);
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function isHoliday(d) {
+  return d.getDay() === 0 || d.getDay() === 6 || d.getDay() === 5 || HOLIDAYS.has(dateKey(d));
+}
+
+function updateLiveMapBtn(isToday) {
+  const btn = document.getElementById('live-map-btn');
+  const dot = document.getElementById('live-map-dot');
+  const title = document.getElementById('live-map-title');
+  const sub = document.getElementById('live-map-sub');
+  if (!btn) return;
+  if (isToday) {
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.style.filter = 'none';
+    dot.style.background = '#1D9E75';
+    title.style.color = '#534AB7';
+    sub.textContent = '탭하여 지도 보기 ↗';
+    btn.onclick = () => go('map');
+  } else {
+    btn.style.opacity = '0.45';
+    btn.style.cursor = 'not-allowed';
+    btn.style.filter = 'grayscale(1)';
+    dot.style.background = '#ccc';
+    title.style.color = '#aaa';
+    sub.textContent = '금일 예약만 실시간 확인 가능';
+    btn.onclick = null;
+  }
+}
+
+function initDates() {
+  const today = new Date();
+
+  // 오늘부터 7일치
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push(d);
+  }
+
+  const dateRow = document.getElementById('date-row');
+  dateRow.innerHTML = '';
+  days.forEach(d => {
+    const isToday = d.toDateString() === today.toDateString();
+    const holiday = isHoliday(d);
+    const div = document.createElement('div');
+
+    if (holiday) {
+      // 주말/공휴일 — 회색, 클릭 불가
+      div.className = 'db';
+      div.style.cssText = 'opacity:.4;cursor:not-allowed;background:#f5f5f5;color:#bbb';
+      div.innerHTML = `${DAYS[d.getDay()]}<br><span style="font-size:8px">${formatShort(d)}</span><br><span style="font-size:7px;color:#ccc">${d.getDay()===0||d.getDay()===6?'휴무':'공휴일'}</span>`;
+    } else {
+      div.className = 'db' + (isToday ? ' active' : '');
+      div.innerHTML = `${DAYS[d.getDay()]}<br><span style="font-size:9px">${formatShort(d)}</span>`;
+      div.onclick = () => {
+        document.querySelectorAll('.db').forEach(b => b.classList.remove('active'));
+        div.classList.add('active');
+        const s = formatDate(d);
+        document.getElementById('pay-date').textContent = s;
+        document.getElementById('ticket-date').textContent = s;
+        selectedDateIsToday = d.toDateString() === today.toDateString();
+        selectedDateCanOperate = !isHoliday(d); // 평일이면 운행
+        updateLiveMapBtn(selectedDateIsToday);
+        renderRoutes();
+      };
+    }
+    dateRow.appendChild(div);
+  });
+
+  const todayStr = formatDate(today);
+  document.getElementById('pay-date').textContent = todayStr;
+  document.getElementById('ticket-date').textContent = todayStr;
+  updateLiveMapBtn(true);
+}
+
+function goMapOrBlock() { go('map'); }
+
+renderRoutes();
+initDates();
+
+// 메인 페이지 날짜 실시간 반영
+function initMainDate() {
+  const el = document.getElementById('main-date-sub');
+  if (!el) return;
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${DAYS[now.getDay()]})`;
+  el.textContent = dateStr;
+}
+initMainDate();
+setInterval(initMainDate, 60000); // 1분마다 갱신
+
+// 탑승이력 노선 필터
+let histTypeFilter = 'all';
+function setHistFilter(el, type) {
+  document.querySelectorAll('.hf').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  histTypeFilter = type;
+  applyHistRouteFilter();
+}
+function applyHistRouteFilter() {
+  const dir   = document.getElementById('hist-dir')?.value   || 'all';
+  const route = document.getElementById('hist-route')?.value || 'all';
+  document.querySelectorAll('.hcard').forEach(c => {
+    const typeOk  = histTypeFilter === 'all' || c.dataset.type === histTypeFilter;
+    const routeTxt = c.querySelector('.hcard-route')?.textContent || '';
+    const dirOk   = dir === 'all' || (dir === 'go' ? routeTxt.includes('등교') : routeTxt.includes('하교'));
+    const routeOk = route === 'all' || routeTxt.includes(route);
+    c.style.display = (typeOk && dirOk && routeOk) ? 'block' : 'none';
+  });
+}
+
+// ── GPS → busAt 실시간 연동 ──────────────────────────
+// Haversine 거리 계산 (km)
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// GPS 좌표 → 노선 내 busAt(0~100) 계산
+function calcBusAt(lat, lng, stops) {
+  if (!stops || stops.length < 2) return 0;
+
+  // 전체 노선 총 거리
+  let totalDist = 0;
+  const segDists = [];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const d = haversine(stops[i].lat, stops[i].lng, stops[i+1].lat, stops[i+1].lng);
+    segDists.push(d);
+    totalDist += d;
+  }
+
+  // 각 구간에서 현재 위치까지의 진행 거리 계산
+  let bestAt = 0;
+  let bestDist = Infinity;
+  let cumDist = 0;
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    const s = stops[i], e = stops[i+1];
+    // 현재 위치에서 구간 시작점·끝점까지 거리
+    const dFromStart = haversine(lat, lng, s.lat, s.lng);
+    const dFromEnd   = haversine(lat, lng, e.lat, e.lng);
+    const segLen = segDists[i];
+
+    // 구간 내 진행률 (직선 투영)
+    const ratio = Math.max(0, Math.min(1, (segLen - dFromEnd) / segLen));
+    const progressDist = cumDist + ratio * segLen;
+    const at = (progressDist / totalDist) * 100;
+
+    // 현재 위치에서 구간까지 가장 가까운 점 거리 (정확도 판단용)
+    const perpDist = Math.abs(dFromStart + dFromEnd - segLen);
+    if (perpDist < bestDist) {
+      bestDist = perpDist;
+      bestAt = at;
+    }
+    cumDist += segLen;
+  }
+  return Math.max(0, Math.min(100, bestAt));
+}
+
+// SSE 연결 (전체 버스 수신)
+let routeSSE = null;
+function connectRouteSSE() {
+  const serverUrl = 'http://localhost:3000';
+  if (routeSSE) routeSSE.close();
+  routeSSE = new EventSource(`${serverUrl}/stream`);
+
+  routeSSE.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      const { busId, lat, lng } = data;
+      const route = routes.find(r => r.busId === busId);
+      if (!route) return;
+
+      const stops = rMode === 'go' ? route.go : route.back;
+      if (!stops[0].lat) return; // 좌표 없으면 스킵
+
+      route.busAt = calcBusAt(lat, lng, stops);
+      renderRoutes(); // 카드 다시 그리기
+      console.log(`[GPS] ${busId} busAt=${route.busAt.toFixed(1)}%`);
+    } catch(err) {}
+  };
+  routeSSE.onerror = () => {}; // 조용히 실패
+}
+connectRouteSSE();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</body>
+</html>

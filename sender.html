@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🚌 버스 위치 송신</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0f0f14;
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+}
+
+h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #888; margin-bottom: 28px; }
+
+/* 상태 카드 */
+.card {
+  width: 100%;
+  max-width: 360px;
+  background: #1a1a24;
+  border: 1px solid #2a2a38;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.card-title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+
+/* 상태 표시 */
+.status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dot.green  { background: #1D9E75; box-shadow: 0 0 6px #1D9E75; }
+.dot.yellow { background: #EF9F27; box-shadow: 0 0 6px #EF9F27; }
+.dot.red    { background: #E24B4A; box-shadow: 0 0 6px #E24B4A; }
+.dot.gray   { background: #444; }
+.dot.pulse  { animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.status-text { font-size: 13px; color: #ccc; }
+
+/* 좌표 표시 */
+.coord-box {
+  background: #111118;
+  border-radius: 10px;
+  padding: 14px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 13px;
+  color: #7adfb0;
+  line-height: 1.8;
+}
+.coord-label { color: #555; font-size: 11px; }
+
+/* 전송 카운터 */
+.counter { font-size: 36px; font-weight: 600; color: #534AB7; text-align: center; margin: 8px 0 4px; }
+.counter-sub { font-size: 11px; color: #555; text-align: center; }
+
+/* 버튼 */
+.btn {
+  width: 100%;
+  max-width: 360px;
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all .15s;
+}
+.btn-start  { background: #534AB7; color: #fff; }
+.btn-start:hover  { background: #6259cc; }
+.btn-stop   { background: #2a2a38; color: #E24B4A; border: 1px solid #3a1a1a; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 로그 */
+.log {
+  width: 100%;
+  max-width: 360px;
+  background: #111118;
+  border: 1px solid #2a2a38;
+  border-radius: 12px;
+  padding: 12px;
+  height: 140px;
+  overflow-y: auto;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.6;
+}
+.log-ok   { color: #1D9E75; }
+.log-err  { color: #E24B4A; }
+.log-info { color: #888; }
+</style>
+</head>
+<body>
+
+<h1>🚌 버스 위치 송신</h1>
+<p class="sub">개발자 폰 → 서버 → 앱 지도</p>
+
+<!-- GPS 상태 -->
+<div class="card">
+  <div class="card-title">GPS 상태</div>
+  <div class="status-row">
+    <div class="dot gray" id="gpsDot"></div>
+    <span class="status-text" id="gpsStatus">대기 중</span>
+  </div>
+  <div class="coord-box" id="coordBox">
+    <span class="coord-label">위도  </span> —<br>
+    <span class="coord-label">경도  </span> —<br>
+    <span class="coord-label">정확도 </span> —
+  </div>
+</div>
+
+<!-- 전송 상태 -->
+<div class="card">
+  <div class="card-title">전송 상태</div>
+  <div class="status-row">
+    <div class="dot gray" id="sendDot"></div>
+    <span class="status-text" id="sendStatus">전송 대기</span>
+  </div>
+  <div class="counter" id="sendCount">0</div>
+  <div class="counter-sub">총 전송 횟수 (5초마다)</div>
+</div>
+
+<!-- 서버 주소 설정 -->
+<div class="card">
+  <div class="card-title">서버 주소</div>
+  <input id="serverUrl" type="text"
+    value="http://localhost:3000"
+    style="width:100%;background:#111118;border:1px solid #2a2a38;border-radius:8px;padding:10px 12px;color:#ccc;font-size:13px;font-family:monospace">
+  <div style="font-size:11px;color:#555;margin-top:6px">
+    같은 와이파이면 서버 PC IP로 변경: http://192.168.x.x:3000
+  </div>
+</div>
+
+<button class="btn btn-start" id="startBtn" onclick="startSending()">GPS 켜고 전송 시작</button>
+<button class="btn btn-stop"  id="stopBtn"  onclick="stopSending()" disabled>전송 중지</button>
+
+<div class="log" id="log"></div>
+
+<script>
+let watchId = null;
+let sendInterval = null;
+let lastCoords = null;
+let sendCount = 0;
+
+function log(msg, type = 'info') {
+  const el = document.getElementById('log');
+  const time = new Date().toTimeString().slice(0, 8);
+  el.innerHTML = `<span class="log-${type}">[${time}] ${msg}</span>\n` + el.innerHTML;
+}
+
+function setDot(id, color) {
+  const d = document.getElementById(id);
+  d.className = `dot ${color}` + (color === 'green' ? ' pulse' : '');
+}
+
+function updateCoords(pos) {
+  const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+  lastCoords = { lat, lng, accuracy };
+
+  document.getElementById('coordBox').innerHTML =
+    `<span class="coord-label">위도  </span> ${lat.toFixed(6)}<br>` +
+    `<span class="coord-label">경도  </span> ${lng.toFixed(6)}<br>` +
+    `<span class="coord-label">정확도 </span> ±${Math.round(accuracy)}m`;
+
+  setDot('gpsDot', 'green');
+  document.getElementById('gpsStatus').textContent = 'GPS 수신 중';
+}
+
+async function sendLocation() {
+  if (!lastCoords) { log('GPS 좌표 없음 — 대기', 'err'); return; }
+
+  const url = document.getElementById('serverUrl').value.trim();
+  try {
+    const res = await fetch(`${url}/location`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: lastCoords.lat,
+        lng: lastCoords.lng,
+        accuracy: lastCoords.accuracy,
+        busId: 'BUS-001',
+        route: '신도림·광명',
+        timestamp: Date.now()
+      })
+    });
+    const data = await res.json();
+    sendCount++;
+    document.getElementById('sendCount').textContent = sendCount;
+    setDot('sendDot', 'green');
+    document.getElementById('sendStatus').textContent = `전송 성공 — 구독자 ${data.clients}명`;
+    log(`전송 OK  lat=${lastCoords.lat.toFixed(5)}, lng=${lastCoords.lng.toFixed(5)}`, 'ok');
+  } catch (e) {
+    setDot('sendDot', 'red');
+    document.getElementById('sendStatus').textContent = '서버 연결 실패';
+    log(`전송 실패: ${e.message}`, 'err');
+  }
+}
+
+function startSending() {
+  if (!navigator.geolocation) {
+    alert('이 브라우저는 GPS를 지원하지 않아요');
+    return;
+  }
+
+  // GPS 감시 시작
+  watchId = navigator.geolocation.watchPosition(
+    updateCoords,
+    err => {
+      setDot('gpsDot', 'red');
+      document.getElementById('gpsStatus').textContent = `GPS 오류: ${err.message}`;
+      log(`GPS 오류: ${err.message}`, 'err');
+    },
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+  );
+
+  // 2초마다 서버로 전송
+  sendLocation(); // 즉시 1회
+  sendInterval = setInterval(sendLocation, 2000);
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled  = false;
+  setDot('sendDot', 'yellow');
+  document.getElementById('sendStatus').textContent = '전송 중...';
+  log('전송 시작 — 5초 간격', 'info');
+}
+
+function stopSending() {
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (sendInterval)     { clearInterval(sendInterval); sendInterval = null; }
+
+  setDot('gpsDot',  'gray');
+  setDot('sendDot', 'gray');
+  document.getElementById('gpsStatus').textContent  = '중지됨';
+  document.getElementById('sendStatus').textContent = '전송 중지';
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled  = true;
+  log('전송 중지됨', 'info');
+}
+</script>
+</body>
+</html>
