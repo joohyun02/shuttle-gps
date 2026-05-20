@@ -67,6 +67,14 @@ select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center;
 }
+select:disabled { opacity: .4; cursor: not-allowed; }
+.dir-btn {
+  flex: 1; padding: 8px; border-radius: 8px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.dir-btn.active   { background: #534AB7; color: #fff; }
+.dir-btn.inactive { background: #2a2a38; color: #666; }
+.dir-btn:disabled { opacity: .4; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -91,14 +99,8 @@ select {
 <div class="card">
   <div class="card-title">노선 선택</div>
   <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button id="btn-go" onclick="setDir('GO')"
-        style="flex:1;padding:8px;border-radius:8px;background:#534AB7;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer">
-        등교
-      </button>
-      <button id="btn-back" onclick="setDir('BACK')"
-        style="flex:1;padding:8px;border-radius:8px;background:#534AB7;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer">
-        하교
-      </button>
+    <button id="btn-go" class="dir-btn active" onclick="setDir('GO')">🏫 등교</button>
+    <button id="btn-back" class="dir-btn inactive" onclick="setDir('BACK')">🏠 하교</button>
   </div>
   <select id="routeSelect" onchange="onRouteChange()">
     <option value="">— 노선을 선택하세요 —</option>
@@ -161,19 +163,27 @@ const ROUTES = [
   { busId: 'TEST-001', name: '테스트 노선', route: '테스트 노선' },
 ];
 
+// 이 기기 고유 토큰 (세션마다 새로 생성, 중복 방지용)
+const SENDER_TOKEN = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
 let currentDir = 'GO';
+let isSending = false;
 
 function setDir(dir) {
+  if (isSending) return; // 전송 중엔 방향 변경 불가
   currentDir = dir;
-  // 버튼 스타일 변경
-    document.getElementById('btn-go').style.background   = dir==='GO'   ? '#534AB7' : '#2a2a38';
-    document.getElementById('btn-go').style.color        = dir==='GO'   ? '#fff' : '#888';
-    document.getElementById('btn-back').style.background = dir==='BACK' ? '#534AB7' : '#2a2a38';
-    document.getElementById('btn-back').style.color      = dir==='BACK' ? '#fff' : '#888';
-    // 노선 선택 초기화
-    document.getElementById('routeSelect').value = '';
-    selectedRoute = null;
-    document.getElementById('routeHint').textContent = '노선을 선택하면 전송이 시작됩니다';
+  document.getElementById('btn-go').className   = 'dir-btn ' + (dir==='GO'   ? 'active' : 'inactive');
+  document.getElementById('btn-back').className = 'dir-btn ' + (dir==='BACK' ? 'active' : 'inactive');
+  // 노선 선택 초기화
+  document.getElementById('routeSelect').value = '';
+  selectedRoute = null;
+  document.getElementById('routeHint').textContent = '노선을 선택하면 전송이 시작됩니다';
+}
+
+function lockRouteUI(lock) {
+  document.getElementById('btn-go').disabled      = lock;
+  document.getElementById('btn-back').disabled    = lock;
+  document.getElementById('routeSelect').disabled = lock;
 }
 
 // 드롭다운 자동 생성
@@ -237,15 +247,27 @@ async function sendLocation() {
         accuracy: lastCoords.accuracy,
         busId: `${selectedRoute.busId}-${currentDir}`,
         route: selectedRoute.route,
+        senderToken: SENDER_TOKEN,
         timestamp: Date.now()
       })
     });
+
+    // 중복 송신 차단
+    if (res.status === 409) {
+      stopSending();
+      const dirLabel = currentDir === 'GO' ? '등교' : '하교';
+      alert(`⚠️ [${selectedRoute.name}] ${dirLabel}\n다른 기기가 이미 이 노선을 송신 중입니다.\n전송이 중지되었습니다.`);
+      log(`[차단] ${selectedRoute.name} — 다른 기기가 이미 송신 중`, 'err');
+      return;
+    }
+
     const data = await res.json();
     sendCount++;
     document.getElementById('sendCount').textContent = sendCount;
     setDot('sendDot', 'green');
     document.getElementById('sendStatus').textContent = `전송 성공 — 구독자 ${data.clients}명`;
-    log(`[${selectedRoute.name}] lat=${lastCoords.lat.toFixed(5)}, lng=${lastCoords.lng.toFixed(5)}`, 'ok');
+    const dirLabel = currentDir === 'GO' ? '등교' : '하교';
+    log(`[${selectedRoute.name}·${dirLabel}] lat=${lastCoords.lat.toFixed(5)}, lng=${lastCoords.lng.toFixed(5)}`, 'ok');
   } catch (e) {
     setDot('sendDot', 'red');
     document.getElementById('sendStatus').textContent = '서버 연결 실패';
@@ -256,6 +278,9 @@ async function sendLocation() {
 function startSending() {
   if (!navigator.geolocation) { alert('이 브라우저는 GPS를 지원하지 않아요'); return; }
   if (!selectedRoute) { alert('노선을 먼저 선택하세요!'); return; }
+
+  isSending = true;
+  lockRouteUI(true); // 전송 중 노선/방향 변경 잠금
 
   watchId = navigator.geolocation.watchPosition(
     updateCoords,
@@ -274,12 +299,15 @@ function startSending() {
   document.getElementById('stopBtn').disabled  = false;
   setDot('sendDot', 'yellow');
   document.getElementById('sendStatus').textContent = '전송 중...';
-  log(`[${selectedRoute.name}] 전송 시작`, 'info');
+  const dirLabel = currentDir === 'GO' ? '등교' : '하교';
+  log(`[${selectedRoute.name}] ${dirLabel} 전송 시작`, 'info');
 }
 
 function stopSending() {
   if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
   if (sendInterval)     { clearInterval(sendInterval); sendInterval = null; }
+  isSending = false;
+  lockRouteUI(false); // 잠금 해제
   setDot('gpsDot',  'gray');
   setDot('sendDot', 'gray');
   document.getElementById('gpsStatus').textContent  = '중지됨';
