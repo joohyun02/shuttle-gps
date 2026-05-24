@@ -360,9 +360,10 @@ function closeModal() {
 }
 
 document.getElementById('modal-confirm').onclick = async () => {
+  const target = pendingReset;
   closeModal();
-  if (!pendingReset) return;
-  const { busIdGo, busIdBack, name } = pendingReset;
+  if (!target) return;
+  const { busIdGo, busIdBack, name } = target;
 
   if (!busIdGo) {
     // 전체 초기화
