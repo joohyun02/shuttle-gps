@@ -147,6 +147,36 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ⓓ 예약 초기화 POST /reset
+  // body: { busId: 'BUS-001-GO' } 또는 {} (전체)
+  if (req.method === 'POST' && req.url === '/reset') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { busId } = JSON.parse(body || '{}');
+        if (busId) {
+          // 특정 노선 초기화
+          reservations[busId] = [];
+          broadcastSeats(busId);
+          console.log(`[초기화] busId=${busId}`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, reset: busId }));
+        } else {
+          // 전체 초기화
+          Object.keys(reservations).forEach(id => { reservations[id] = []; });
+          Object.keys(TOTAL_SEATS).forEach(id => broadcastSeats(id));
+          console.log(`[전체초기화]`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, reset: 'ALL' }));
+        }
+      } catch (e) {
+        res.writeHead(400); res.end(JSON.stringify({ error: 'invalid JSON' }));
+      }
+    });
+    return;
+  }
+
   // ─── GPS 위치 API ─────────────────────────────
   if (req.method === 'POST' && req.url === '/location') {
     let body = '';

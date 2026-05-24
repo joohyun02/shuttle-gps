@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛠️ 셔틀버스 관리자</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0f0f14;
+  color: #fff;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+/* 헤더 */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 800px; margin: 0 auto 28px;
+}
+.header-title { font-size: 18px; font-weight: 700; }
+.header-sub { font-size: 12px; color: #555; margin-top: 2px; }
+.server-badge {
+  font-size: 11px; color: #1D9E75; background: #0a2a1a;
+  border: 1px solid #1D9E75; border-radius: 20px; padding: 4px 10px;
+}
+
+/* 서버 주소 */
+.server-row {
+  max-width: 800px; margin: 0 auto 20px;
+  display: flex; gap: 8px; align-items: center;
+}
+.server-row input {
+  flex: 1; background: #1a1a24; border: 1px solid #2a2a38;
+  border-radius: 8px; padding: 9px 12px; color: #ccc;
+  font-size: 12px; font-family: monospace; outline: none;
+}
+.server-row button {
+  background: #534AB7; color: #fff; border: none;
+  border-radius: 8px; padding: 9px 16px; font-size: 12px;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+
+/* 섹션 */
+.section {
+  max-width: 800px; margin: 0 auto 20px;
+  background: #1a1a24; border: 1px solid #2a2a38;
+  border-radius: 16px; overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid #2a2a38;
+}
+.section-title { font-size: 13px; font-weight: 600; }
+.section-sub { font-size: 11px; color: #555; margin-top: 2px; }
+
+/* 전체 초기화 버튼 */
+.btn-reset-all {
+  background: #3a1a1a; color: #E24B4A; border: 1px solid #E24B4A;
+  border-radius: 8px; padding: 7px 14px; font-size: 12px;
+  font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-reset-all:hover { background: #E24B4A; color: #fff; }
+
+/* 노선 테이블 */
+.route-table { width: 100%; }
+.route-row {
+  display: grid; grid-template-columns: 1fr 80px 80px 80px 100px;
+  align-items: center; padding: 12px 20px;
+  border-bottom: 1px solid #1e1e2a; gap: 8px;
+}
+.route-row:last-child { border-bottom: none; }
+.route-row.header-row {
+  font-size: 10px; color: #555; text-transform: uppercase;
+  letter-spacing: .06em; padding: 8px 20px;
+  border-bottom: 1px solid #2a2a38;
+}
+.route-name { font-size: 13px; font-weight: 500; }
+.route-dir { font-size: 11px; color: #888; margin-top: 2px; }
+.seats-num { font-size: 13px; font-weight: 600; text-align: center; }
+.seats-num.ok { color: #1D9E75; }
+.seats-num.warn { color: #EF9F27; }
+.seats-num.full { color: #E24B4A; }
+.seats-bar {
+  height: 4px; background: #2a2a38; border-radius: 2px; overflow: hidden;
+}
+.seats-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+.btn-reset {
+  background: #2a2a38; color: #E24B4A; border: 1px solid #3a2a2a;
+  border-radius: 6px; padding: 5px 10px; font-size: 11px;
+  font-weight: 600; cursor: pointer; transition: all .15s; text-align: center;
+}
+.btn-reset:hover { background: #3a1a1a; }
+
+/* 통계 카드 */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; padding: 16px 20px;
+}
+.stat-card {
+  background: #111118; border-radius: 10px; padding: 14px;
+  text-align: center;
+}
+.stat-num { font-size: 28px; font-weight: 700; color: #534AB7; }
+.stat-label { font-size: 11px; color: #555; margin-top: 4px; }
+
+/* 로그 */
+.log {
+  margin: 0 20px 16px;
+  background: #111118; border: 1px solid #2a2a38;
+  border-radius: 10px; padding: 10px 12px;
+  height: 100px; overflow-y: auto;
+  font-family: monospace; font-size: 11px; color: #666; line-height: 1.7;
+}
+.log-ok { color: #1D9E75; }
+.log-err { color: #E24B4A; }
+.log-info { color: #888; }
+
+/* SSE 상태 */
+.live-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: #555;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #444;
+}
+.live-dot.on { background: #1D9E75; animation: blink 1.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* 모달 */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.7); z-index: 999;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #1a1a24; border: 1px solid #2a2a38;
+  border-radius: 16px; padding: 24px; max-width: 320px; width: 90%;
+}
+.modal h3 { font-size: 15px; margin-bottom: 8px; }
+.modal p { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.6; }
+.modal-btns { display: flex; gap: 8px; }
+.modal-btns button { flex: 1; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+.btn-confirm { background: #E24B4A; color: #fff; }
+.btn-cancel-m { background: #2a2a38; color: #888; }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div>
+    <div class="header-title">🛠️ 셔틀버스 관리자</div>
+    <div class="header-sub">예약 현황 · 초기화 · 실시간 모니터링</div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot" id="liveDot"></div>
+    <span id="liveText">연결 대기</span>
+  </div>
+</div>
+
+<!-- 서버 주소 -->
+<div class="server-row">
+  <input id="serverUrl" type="text" value="https://shuttle-gps-production.up.railway.app" placeholder="서버 주소">
+  <button onclick="init()">연결</button>
+</div>
+
+<!-- 통계 -->
+<div class="section">
+  <div class="section-header">
+    <div>
+      <div class="section-title">전체 현황</div>
+      <div class="section-sub">등교 노선 기준</div>
+    </div>
+    <button class="btn-reset-all" onclick="confirmReset(null)">전체 초기화</button>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-total">0</div>
+      <div class="stat-label">총 예약 인원</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-seats">0</div>
+      <div class="stat-label">총 잔여 좌석</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-rate">0%</div>
+      <div class="stat-label">평균 탑승률</div>
+    </div>
+  </div>
+</div>
+
+<!-- 노선별 예약 현황 -->
+<div class="section">
+  <div class="section-header">
+    <div>
+      <div class="section-title">노선별 예약 현황</div>
+      <div class="section-sub">실시간 업데이트</div>
+    </div>
+  </div>
+  <div class="route-table">
+    <div class="route-row header-row">
+      <div>노선</div>
+      <div style="text-align:center">예약</div>
+      <div style="text-align:center">잔여</div>
+      <div style="text-align:center">탑승률</div>
+      <div style="text-align:center">초기화</div>
+    </div>
+    <div id="routeList"><!-- JS에서 렌더링 --></div>
+  </div>
+</div>
+
+<!-- 로그 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">작업 로그</div>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<!-- 확인 모달 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">초기화 확인</h3>
+    <p id="modal-desc">정말 초기화하시겠습니까?</p>
+    <div class="modal-btns">
+      <button class="btn-cancel-m" onclick="closeModal()">취소</button>
+      <button class="btn-confirm" id="modal-confirm">초기화</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROUTES = [
+  { busId: 'BUS-001-GO', busIdBack: 'BUS-001-BACK', name: '신도림·광명' },
+  { busId: 'BUS-002-GO', busIdBack: 'BUS-002-BACK', name: '사당·안산'   },
+  { busId: 'BUS-003-GO', busIdBack: 'BUS-003-BACK', name: '일산·송내'   },
+  { busId: 'BUS-004-GO', busIdBack: 'BUS-004-BACK', name: '수원·평택'   },
+  { busId: 'BUS-005-GO', busIdBack: 'BUS-005-BACK', name: '인천'         },
+  { busId: 'BUS-006-GO', busIdBack: 'BUS-006-BACK', name: '천안·아산'   },
+  { busId: 'TEST-001-GO', busIdBack: 'TEST-001-BACK', name: '테스트 노선' },
+];
+
+// busId → { reserved, total, available }
+const seatsData = {};
+
+let sseSource = null;
+
+function serverUrl() {
+  return document.getElementById('serverUrl').value.trim();
+}
+
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const time = new Date().toTimeString().slice(0,8);
+  el.innerHTML = `<span class="log-${type}">[${time}] ${msg}</span>\n` + el.innerHTML;
+}
+
+// ── SSE 연결 ─────────────────────────────────
+function connectSSE() {
+  if (sseSource) sseSource.close();
+  sseSource = new EventSource(`${serverUrl()}/stream`);
+
+  sseSource.onopen = () => {
+    document.getElementById('liveDot').className = 'live-dot on';
+    document.getElementById('liveText').textContent = '실시간 연결됨';
+    log('서버 SSE 연결됨', 'ok');
+  };
+
+  sseSource.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'seats') {
+        seatsData[d.busId] = d;
+        renderRoutes();
+      }
+    } catch(err) {}
+  };
+
+  sseSource.onerror = () => {
+    document.getElementById('liveDot').className = 'live-dot';
+    document.getElementById('liveText').textContent = '연결 끊김';
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ── 초기 좌석 데이터 로드 ────────────────────
+async function loadSeats() {
+  try {
+    const res = await fetch(`${serverUrl()}/seats`);
+    const data = await res.json();
+    Object.values(data).forEach(info => { seatsData[info.busId] = info; });
+    renderRoutes();
+    log('좌석 현황 로드 완료', 'ok');
+  } catch(e) {
+    log(`좌석 로드 실패: ${e.message}`, 'err');
+  }
+}
+
+// ── 노선 목록 렌더링 ─────────────────────────
+function renderRoutes() {
+  const container = document.getElementById('routeList');
+  let totalReserved = 0, totalAvailable = 0, totalCapacity = 0;
+
+  container.innerHTML = ROUTES.map(r => {
+    const go   = seatsData[r.busId]    || { reserved: 0, total: 45, available: 45 };
+    const back = seatsData[r.busIdBack] || { reserved: 0, total: 45, available: 45 };
+
+    totalReserved  += go.reserved;
+    totalAvailable += go.available;
+    totalCapacity  += go.total;
+
+    const rate = Math.round((go.reserved / go.total) * 100);
+    const barColor = rate >= 90 ? '#E24B4A' : rate >= 60 ? '#EF9F27' : '#1D9E75';
+    const numClass = rate >= 90 ? 'full' : rate >= 60 ? 'warn' : 'ok';
+
+    return `
+      <div class="route-row">
+        <div>
+          <div class="route-name">${r.name}</div>
+          <div class="route-dir">등교 ${go.reserved}명 / 하교 ${back.reserved}명</div>
+          <div class="seats-bar" style="margin-top:6px">
+            <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
+          </div>
+        </div>
+        <div class="seats-num">${go.reserved}</div>
+        <div class="seats-num ${numClass}">${go.available}</div>
+        <div class="seats-num" style="color:#888">${rate}%</div>
+        <div>
+          <div class="btn-reset" onclick="confirmReset('${r.busId}', '${r.busIdBack}', '${r.name}')">초기화</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // 통계 업데이트
+  document.getElementById('stat-total').textContent = totalReserved;
+  document.getElementById('stat-seats').textContent = totalAvailable;
+  const avgRate = totalCapacity > 0 ? Math.round((totalReserved / totalCapacity) * 100) : 0;
+  document.getElementById('stat-rate').textContent = avgRate + '%';
+}
+
+// ── 초기화 확인 모달 ─────────────────────────
+let pendingReset = null;
+
+function confirmReset(busIdGo, busIdBack, name) {
+  pendingReset = { busIdGo, busIdBack, name };
+  const isAll = !busIdGo;
+  document.getElementById('modal-title').textContent = isAll ? '전체 초기화' : `${name} 초기화`;
+  document.getElementById('modal-desc').textContent = isAll
+    ? '모든 노선의 예약 데이터를 초기화합니다.\n이 작업은 되돌릴 수 없습니다.'
+    : `${name} 노선의 등교/하교 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  pendingReset = null;
+}
+
+document.getElementById('modal-confirm').onclick = async () => {
+  closeModal();
+  if (!pendingReset) return;
+  const { busIdGo, busIdBack, name } = pendingReset;
+
+  if (!busIdGo) {
+    // 전체 초기화
+    await doReset(null, '전체');
+  } else {
+    // GO + BACK 둘 다 초기화
+    await doReset(busIdGo, `${name} 등교`);
+    await doReset(busIdBack, `${name} 하교`);
+  }
+};
+
+async function doReset(busId, label) {
+  try {
+    const res = await fetch(`${serverUrl()}/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(busId ? { busId } : {})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      log(`[초기화 완료] ${label}`, 'ok');
+      await loadSeats();
+    } else {
+      log(`[초기화 실패] ${label}`, 'err');
+    }
+  } catch(e) {
+    log(`[초기화 오류] ${e.message}`, 'err');
+  }
+}
+
+// ── 초기화 ───────────────────────────────────
+async function init() {
+  await loadSeats();
+  connectSSE();
+}
+
+init();
+</script>
+</body>
+</html>
