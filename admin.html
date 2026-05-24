@@ -128,6 +128,15 @@ body {
 .live-dot.on { background: #1D9E75; animation: blink 1.4s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
 
+/* 등교/하교 토글 */
+.dir-toggle { display: flex; gap: 8px; max-width: 800px; margin: 0 auto 20px; }
+.dir-btn {
+  flex: 1; padding: 10px; border-radius: 10px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.dir-btn.active   { background: #534AB7; color: #fff; }
+.dir-btn.inactive { background: #1a1a24; color: #555; border: 1px solid #2a2a38; }
+
 /* 모달 */
 .modal-overlay {
   display: none; position: fixed; inset: 0;
@@ -167,14 +176,20 @@ body {
   <button onclick="init()">연결</button>
 </div>
 
+<!-- 등교/하교 토글 -->
+<div class="dir-toggle">
+  <button id="btn-go" class="dir-btn active" onclick="setDir('GO')">🏫 등교</button>
+  <button id="btn-back" class="dir-btn inactive" onclick="setDir('BACK')">🏠 하교</button>
+</div>
+
 <!-- 통계 -->
 <div class="section">
   <div class="section-header">
     <div>
       <div class="section-title">전체 현황</div>
-      <div class="section-sub">등교 노선 기준</div>
+      <div class="section-sub" id="dir-label">등교 노선 기준</div>
     </div>
-    <button class="btn-reset-all" onclick="confirmReset(null)">전체 초기화</button>
+    <button class="btn-reset-all" onclick="confirmReset(null, '전체')">전체 초기화</button>
   </div>
   <div class="stats-grid">
     <div class="stat-card">
@@ -243,6 +258,16 @@ const ROUTES = [
   { busId: 'TEST-001-GO', busIdBack: 'TEST-001-BACK', name: '테스트 노선' },
 ];
 
+let currentDir = 'GO';
+
+function setDir(dir) {
+  currentDir = dir;
+  document.getElementById('btn-go').className   = 'dir-btn ' + (dir==='GO'   ? 'active' : 'inactive');
+  document.getElementById('btn-back').className = 'dir-btn ' + (dir==='BACK' ? 'active' : 'inactive');
+  document.getElementById('dir-label').textContent = dir==='GO' ? '등교 노선 기준' : '하교 노선 기준';
+  renderRoutes();
+}
+
 // busId → { reserved, total, available }
 const seatsData = {};
 
@@ -305,31 +330,33 @@ function renderRoutes() {
   let totalReserved = 0, totalAvailable = 0, totalCapacity = 0;
 
   container.innerHTML = ROUTES.map(r => {
-    const go   = seatsData[r.busId]    || { reserved: 0, total: 45, available: 45 };
-    const back = seatsData[r.busIdBack] || { reserved: 0, total: 45, available: 45 };
+    const isGo = currentDir === 'GO';
+    const cur  = seatsData[isGo ? r.busId : r.busIdBack] || { reserved: 0, total: 45, available: 45 };
 
-    totalReserved  += go.reserved;
-    totalAvailable += go.available;
-    totalCapacity  += go.total;
+    totalReserved  += cur.reserved;
+    totalAvailable += cur.available;
+    totalCapacity  += cur.total;
 
-    const rate = Math.round((go.reserved / go.total) * 100);
+    const rate = Math.round((cur.reserved / cur.total) * 100);
     const barColor = rate >= 90 ? '#E24B4A' : rate >= 60 ? '#EF9F27' : '#1D9E75';
     const numClass = rate >= 90 ? 'full' : rate >= 60 ? 'warn' : 'ok';
+    const dirLabel = isGo ? '등교' : '하교';
+    const resetBusId = isGo ? r.busId : r.busIdBack;
 
     return `
       <div class="route-row">
         <div>
           <div class="route-name">${r.name}</div>
-          <div class="route-dir">등교 ${go.reserved}명 / 하교 ${back.reserved}명</div>
+          <div class="route-dir">${dirLabel} ${cur.reserved}명 예약 / 잔여 ${cur.available}석</div>
           <div class="seats-bar" style="margin-top:6px">
             <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
           </div>
         </div>
-        <div class="seats-num">${go.reserved}</div>
-        <div class="seats-num ${numClass}">${go.available}</div>
+        <div class="seats-num">${cur.reserved}</div>
+        <div class="seats-num ${numClass}">${cur.available}</div>
         <div class="seats-num" style="color:#888">${rate}%</div>
         <div>
-          <div class="btn-reset" onclick="confirmReset('${r.busId}', '${r.busIdBack}', '${r.name}')">초기화</div>
+          <div class="btn-reset" onclick="confirmReset('${resetBusId}', '${r.name} ${dirLabel}')">초기화</div>
         </div>
       </div>`;
   }).join('');
@@ -344,13 +371,13 @@ function renderRoutes() {
 // ── 초기화 확인 모달 ─────────────────────────
 let pendingReset = null;
 
-function confirmReset(busIdGo, busIdBack, name) {
-  pendingReset = { busIdGo, busIdBack, name };
-  const isAll = !busIdGo;
-  document.getElementById('modal-title').textContent = isAll ? '전체 초기화' : `${name} 초기화`;
+function confirmReset(busId, label) {
+  pendingReset = { busId, label };
+  const isAll = !busId;
+  document.getElementById('modal-title').textContent = isAll ? '전체 초기화' : `${label} 초기화`;
   document.getElementById('modal-desc').textContent = isAll
     ? '모든 노선의 예약 데이터를 초기화합니다.\n이 작업은 되돌릴 수 없습니다.'
-    : `${name} 노선의 등교/하교 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`;
+    : `[${label}] 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`;
   document.getElementById('modal').classList.add('show');
 }
 
@@ -363,16 +390,8 @@ document.getElementById('modal-confirm').onclick = async () => {
   const target = pendingReset;
   closeModal();
   if (!target) return;
-  const { busIdGo, busIdBack, name } = target;
-
-  if (!busIdGo) {
-    // 전체 초기화
-    await doReset(null, '전체');
-  } else {
-    // GO + BACK 둘 다 초기화
-    await doReset(busIdGo, `${name} 등교`);
-    await doReset(busIdBack, `${name} 하교`);
-  }
+  const { busId, label } = target;
+  await doReset(busId || null, label || '전체');
 };
 
 async function doReset(busId, label) {
