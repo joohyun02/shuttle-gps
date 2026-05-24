@@ -8,25 +8,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0f0f14;
-  color: #fff;
-  min-height: 100vh;
-  padding: 24px 16px;
+  background: #0f0f14; color: #fff; min-height: 100vh; padding: 24px 16px;
 }
-
-/* 헤더 */
 .header {
   display: flex; align-items: center; justify-content: space-between;
   max-width: 800px; margin: 0 auto 28px;
 }
 .header-title { font-size: 18px; font-weight: 700; }
 .header-sub { font-size: 12px; color: #555; margin-top: 2px; }
-.server-badge {
-  font-size: 11px; color: #1D9E75; background: #0a2a1a;
-  border: 1px solid #1D9E75; border-radius: 20px; padding: 4px 10px;
-}
-
-/* 서버 주소 */
 .server-row {
   max-width: 800px; margin: 0 auto 20px;
   display: flex; gap: 8px; align-items: center;
@@ -41,8 +30,6 @@ body {
   border-radius: 8px; padding: 9px 16px; font-size: 12px;
   font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-
-/* 섹션 */
 .section {
   max-width: 800px; margin: 0 auto 20px;
   background: #1a1a24; border: 1px solid #2a2a38;
@@ -55,13 +42,55 @@ body {
 .section-title { font-size: 13px; font-weight: 600; }
 .section-sub { font-size: 11px; color: #555; margin-top: 2px; }
 
-/* 전체 초기화 버튼 */
-.btn-reset-all {
-  background: #3a1a1a; color: #E24B4A; border: 1px solid #E24B4A;
-  border-radius: 8px; padding: 7px 14px; font-size: 12px;
-  font-weight: 600; cursor: pointer; transition: all .15s;
+/* 탭 */
+.tab-row {
+  display: flex; max-width: 800px; margin: 0 auto 20px; gap: 8px;
 }
-.btn-reset-all:hover { background: #E24B4A; color: #fff; }
+.tab-btn {
+  flex: 1; padding: 10px; border-radius: 10px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.tab-btn.active { background: #534AB7; color: #fff; }
+.tab-btn.inactive { background: #1a1a24; color: #555; border: 1px solid #2a2a38; }
+
+/* 날짜 선택 */
+.date-row {
+  max-width: 800px; margin: 0 auto 20px;
+  display: flex; gap: 8px; align-items: center;
+}
+.date-row input[type=date] {
+  background: #1a1a24; border: 1px solid #2a2a38;
+  border-radius: 8px; padding: 9px 12px; color: #ccc;
+  font-size: 13px; outline: none; cursor: pointer;
+}
+.date-row input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); }
+.date-nav {
+  background: #1a1a24; border: 1px solid #2a2a38; color: #ccc;
+  border-radius: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer;
+}
+.date-today {
+  background: #534AB7; color: #fff; border: none;
+  border-radius: 8px; padding: 9px 14px; font-size: 12px;
+  font-weight: 600; cursor: pointer;
+}
+
+/* 등교/하교 토글 */
+.dir-toggle { display: flex; gap: 8px; max-width: 800px; margin: 0 auto 20px; }
+.dir-btn {
+  flex: 1; padding: 10px; border-radius: 10px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.dir-btn.active   { background: #534AB7; color: #fff; }
+.dir-btn.inactive { background: #1a1a24; color: #555; border: 1px solid #2a2a38; }
+
+/* 통계 */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; padding: 16px 20px;
+}
+.stat-card { background: #111118; border-radius: 10px; padding: 14px; text-align: center; }
+.stat-num { font-size: 28px; font-weight: 700; color: #534AB7; }
+.stat-label { font-size: 11px; color: #555; margin-top: 4px; }
 
 /* 노선 테이블 */
 .route-table { width: 100%; }
@@ -73,8 +102,7 @@ body {
 .route-row:last-child { border-bottom: none; }
 .route-row.header-row {
   font-size: 10px; color: #555; text-transform: uppercase;
-  letter-spacing: .06em; padding: 8px 20px;
-  border-bottom: 1px solid #2a2a38;
+  letter-spacing: .06em; padding: 8px 20px; border-bottom: 1px solid #2a2a38;
 }
 .route-name { font-size: 13px; font-weight: 500; }
 .route-dir { font-size: 11px; color: #888; margin-top: 2px; }
@@ -82,9 +110,7 @@ body {
 .seats-num.ok { color: #1D9E75; }
 .seats-num.warn { color: #EF9F27; }
 .seats-num.full { color: #E24B4A; }
-.seats-bar {
-  height: 4px; background: #2a2a38; border-radius: 2px; overflow: hidden;
-}
+.seats-bar { height: 4px; background: #2a2a38; border-radius: 2px; overflow: hidden; }
 .seats-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
 .btn-reset {
   background: #2a2a38; color: #E24B4A; border: 1px solid #3a2a2a;
@@ -92,62 +118,60 @@ body {
   font-weight: 600; cursor: pointer; transition: all .15s; text-align: center;
 }
 .btn-reset:hover { background: #3a1a1a; }
+.btn-reset-all {
+  background: #3a1a1a; color: #E24B4A; border: 1px solid #E24B4A;
+  border-radius: 8px; padding: 7px 14px; font-size: 12px;
+  font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-reset-all:hover { background: #E24B4A; color: #fff; }
 
-/* 통계 카드 */
-.stats-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; padding: 16px 20px;
+/* 정류장별 현황 */
+.stop-detail {
+  padding: 0 20px 16px; display: none;
 }
-.stat-card {
-  background: #111118; border-radius: 10px; padding: 14px;
-  text-align: center;
+.stop-detail.show { display: block; }
+.stop-tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.stop-tag {
+  background: #111118; border: 1px solid #2a2a38;
+  border-radius: 20px; padding: 4px 12px; font-size: 11px; color: #ccc;
 }
-.stat-num { font-size: 28px; font-weight: 700; color: #534AB7; }
-.stat-label { font-size: 11px; color: #555; margin-top: 4px; }
+.stop-tag span { color: #534AB7; font-weight: 600; }
+
+/* 날짜별 현황 탭 */
+.hist-section { padding: 16px 20px; }
+.hist-date-title {
+  font-size: 13px; font-weight: 600; color: #ccc; margin-bottom: 12px;
+}
+.hist-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid #1e1e2a; font-size: 12px;
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-label { color: #888; }
+.hist-val { color: #fff; font-weight: 500; }
+.hist-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: #2a2a38; border-radius: 2px; overflow: hidden; }
+.hist-bar-fill { height: 100%; background: #534AB7; border-radius: 2px; }
 
 /* 로그 */
 .log {
-  margin: 0 20px 16px;
-  background: #111118; border: 1px solid #2a2a38;
-  border-radius: 10px; padding: 10px 12px;
-  height: 100px; overflow-y: auto;
+  margin: 0 20px 16px; background: #111118; border: 1px solid #2a2a38;
+  border-radius: 10px; padding: 10px 12px; height: 100px; overflow-y: auto;
   font-family: monospace; font-size: 11px; color: #666; line-height: 1.7;
 }
 .log-ok { color: #1D9E75; }
 .log-err { color: #E24B4A; }
 .log-info { color: #888; }
 
-/* SSE 상태 */
-.live-badge {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: #555;
-}
-.live-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: #444;
-}
+/* SSE */
+.live-badge { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #444; }
 .live-dot.on { background: #1D9E75; animation: blink 1.4s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
 
-/* 등교/하교 토글 */
-.dir-toggle { display: flex; gap: 8px; max-width: 800px; margin: 0 auto 20px; }
-.dir-btn {
-  flex: 1; padding: 10px; border-radius: 10px; border: none;
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
-}
-.dir-btn.active   { background: #534AB7; color: #fff; }
-.dir-btn.inactive { background: #1a1a24; color: #555; border: 1px solid #2a2a38; }
-
 /* 모달 */
-.modal-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.7); z-index: 999;
-  align-items: center; justify-content: center;
-}
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 999; align-items: center; justify-content: center; }
 .modal-overlay.show { display: flex; }
-.modal {
-  background: #1a1a24; border: 1px solid #2a2a38;
-  border-radius: 16px; padding: 24px; max-width: 320px; width: 90%;
-}
+.modal { background: #1a1a24; border: 1px solid #2a2a38; border-radius: 16px; padding: 24px; max-width: 320px; width: 90%; }
 .modal h3 { font-size: 15px; margin-bottom: 8px; }
 .modal p { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.6; }
 .modal-btns { display: flex; gap: 8px; }
@@ -176,63 +200,101 @@ body {
   <button onclick="init()">연결</button>
 </div>
 
-<!-- 등교/하교 토글 -->
-<div class="dir-toggle">
-  <button id="btn-go" class="dir-btn active" onclick="setDir('GO')">🏫 등교</button>
-  <button id="btn-back" class="dir-btn inactive" onclick="setDir('BACK')">🏠 하교</button>
+<!-- 메인탭 (실시간 / 날짜별) -->
+<div class="tab-row">
+  <button id="tab-live" class="tab-btn active" onclick="switchTab('live')">📡 실시간 현황</button>
+  <button id="tab-hist" class="tab-btn inactive" onclick="switchTab('hist')">📅 날짜별 조회</button>
 </div>
 
-<!-- 통계 -->
-<div class="section">
-  <div class="section-header">
-    <div>
-      <div class="section-title">전체 현황</div>
-      <div class="section-sub" id="dir-label">등교 노선 기준</div>
-    </div>
-    <button class="btn-reset-all" onclick="confirmReset(null, '전체')">전체 초기화</button>
+<!-- ══ 실시간 탭 ══ -->
+<div id="panel-live">
+  <!-- 등교/하교 토글 -->
+  <div class="dir-toggle">
+    <button id="btn-go" class="dir-btn active" onclick="setDir('GO')">🏫 등교</button>
+    <button id="btn-back" class="dir-btn inactive" onclick="setDir('BACK')">🏠 하교</button>
   </div>
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-num" id="stat-total">0</div>
-      <div class="stat-label">총 예약 인원</div>
+
+  <!-- 통계 -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">전체 현황</div>
+        <div class="section-sub" id="dir-label">등교 노선 기준 · 오늘</div>
+      </div>
+      <button class="btn-reset-all" onclick="confirmReset(null, '전체')">전체 초기화</button>
     </div>
-    <div class="stat-card">
-      <div class="stat-num" id="stat-seats">0</div>
-      <div class="stat-label">총 잔여 좌석</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">총 예약 인원</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-seats">0</div><div class="stat-label">총 잔여 좌석</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-rate">0%</div><div class="stat-label">평균 탑승률</div></div>
     </div>
-    <div class="stat-card">
-      <div class="stat-num" id="stat-rate">0%</div>
-      <div class="stat-label">평균 탑승률</div>
+  </div>
+
+  <!-- 노선별 현황 -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">노선별 예약 현황</div>
+        <div class="section-sub">정류장별 인원 포함 · 실시간</div>
+      </div>
     </div>
+    <div class="route-table">
+      <div class="route-row header-row">
+        <div>노선</div>
+        <div style="text-align:center">예약</div>
+        <div style="text-align:center">잔여</div>
+        <div style="text-align:center">탑승률</div>
+        <div style="text-align:center">초기화</div>
+      </div>
+      <div id="routeList"></div>
+    </div>
+  </div>
+
+  <!-- 로그 -->
+  <div class="section">
+    <div class="section-header"><div class="section-title">작업 로그</div></div>
+    <div class="log" id="log"></div>
   </div>
 </div>
 
-<!-- 노선별 예약 현황 -->
-<div class="section">
-  <div class="section-header">
-    <div>
-      <div class="section-title">노선별 예약 현황</div>
-      <div class="section-sub">실시간 업데이트</div>
-    </div>
+<!-- ══ 날짜별 탭 ══ -->
+<div id="panel-hist" style="display:none">
+  <!-- 날짜 선택 -->
+  <div class="date-row">
+    <button class="date-nav" onclick="moveDate(-1)">◀</button>
+    <input type="date" id="histDate" onchange="loadHistData()">
+    <button class="date-nav" onclick="moveDate(1)">▶</button>
+    <button class="date-today" onclick="goToday()">오늘</button>
   </div>
-  <div class="route-table">
-    <div class="route-row header-row">
-      <div>노선</div>
-      <div style="text-align:center">예약</div>
-      <div style="text-align:center">잔여</div>
-      <div style="text-align:center">탑승률</div>
-      <div style="text-align:center">초기화</div>
-    </div>
-    <div id="routeList"><!-- JS에서 렌더링 --></div>
-  </div>
-</div>
 
-<!-- 로그 -->
-<div class="section">
-  <div class="section-header">
-    <div class="section-title">작업 로그</div>
+  <!-- 등교/하교 토글 (날짜별) -->
+  <div class="dir-toggle">
+    <button id="hbtn-go" class="dir-btn active" onclick="setHistDir('GO')">🏫 등교</button>
+    <button id="hbtn-back" class="dir-btn inactive" onclick="setHistDir('BACK')">🏠 하교</button>
   </div>
-  <div class="log" id="log"></div>
+
+  <!-- 날짜별 통계 -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title" id="hist-title">날짜별 예약 현황</div>
+        <div class="section-sub" id="hist-sub">날짜를 선택하세요</div>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="hstat-total">0</div><div class="stat-label">총 예약 인원</div></div>
+      <div class="stat-card"><div class="stat-num" id="hstat-routes">0</div><div class="stat-label">운행 노선 수</div></div>
+      <div class="stat-card"><div class="stat-num" id="hstat-rate">0%</div><div class="stat-label">평균 탑승률</div></div>
+    </div>
+  </div>
+
+  <!-- 노선별 상세 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">노선별 상세 현황</div>
+    </div>
+    <div id="histRouteList"></div>
+  </div>
 </div>
 
 <!-- 확인 모달 -->
@@ -249,33 +311,30 @@ body {
 
 <script>
 const ROUTES = [
-  { busId: 'BUS-001-GO', busIdBack: 'BUS-001-BACK', name: '신도림·광명' },
-  { busId: 'BUS-002-GO', busIdBack: 'BUS-002-BACK', name: '사당·안산'   },
-  { busId: 'BUS-003-GO', busIdBack: 'BUS-003-BACK', name: '일산·송내'   },
-  { busId: 'BUS-004-GO', busIdBack: 'BUS-004-BACK', name: '수원·평택'   },
-  { busId: 'BUS-005-GO', busIdBack: 'BUS-005-BACK', name: '인천'         },
-  { busId: 'BUS-006-GO', busIdBack: 'BUS-006-BACK', name: '천안·아산'   },
-  { busId: 'TEST-001-GO', busIdBack: 'TEST-001-BACK', name: '테스트 노선' },
+  { busId: 'BUS-001-GO', busIdBack: 'BUS-001-BACK', name: '신도림·광명', stops: ['신도림','광명'] },
+  { busId: 'BUS-002-GO', busIdBack: 'BUS-002-BACK', name: '사당·안산',   stops: ['사당','안산'] },
+  { busId: 'BUS-003-GO', busIdBack: 'BUS-003-BACK', name: '일산·송내',   stops: ['일산','송내'] },
+  { busId: 'BUS-004-GO', busIdBack: 'BUS-004-BACK', name: '수원·평택',   stops: ['수원','평택'] },
+  { busId: 'BUS-005-GO', busIdBack: 'BUS-005-BACK', name: '인천',         stops: ['인천'] },
+  { busId: 'BUS-006-GO', busIdBack: 'BUS-006-BACK', name: '천안·아산',   stops: ['천안','아산'] },
+  { busId: 'TEST-001-GO', busIdBack: 'TEST-001-BACK', name: '테스트 노선', stops: ['출발','경유'] },
 ];
 
+const TOTAL_SEATS = {
+  'BUS-001-GO':45,'BUS-001-BACK':45,'BUS-002-GO':45,'BUS-002-BACK':45,
+  'BUS-003-GO':45,'BUS-003-BACK':45,'BUS-004-GO':45,'BUS-004-BACK':45,
+  'BUS-005-GO':35,'BUS-005-BACK':35,'BUS-006-GO':45,'BUS-006-BACK':45,
+  'TEST-001-GO':10,'TEST-001-BACK':10,
+};
+
 let currentDir = 'GO';
-
-function setDir(dir) {
-  currentDir = dir;
-  document.getElementById('btn-go').className   = 'dir-btn ' + (dir==='GO'   ? 'active' : 'inactive');
-  document.getElementById('btn-back').className = 'dir-btn ' + (dir==='BACK' ? 'active' : 'inactive');
-  document.getElementById('dir-label').textContent = dir==='GO' ? '등교 노선 기준' : '하교 노선 기준';
-  renderRoutes();
-}
-
-// busId → { reserved, total, available }
-const seatsData = {};
-
+let histDir = 'GO';
+let currentTab = 'live';
+let seatsData = {};
+let histData = null;
 let sseSource = null;
 
-function serverUrl() {
-  return document.getElementById('serverUrl').value.trim();
-}
+function serverUrl() { return document.getElementById('serverUrl').value.trim(); }
 
 function log(msg, type='info') {
   const el = document.getElementById('log');
@@ -283,27 +342,39 @@ function log(msg, type='info') {
   el.innerHTML = `<span class="log-${type}">[${time}] ${msg}</span>\n` + el.innerHTML;
 }
 
-// ── SSE 연결 ─────────────────────────────────
+// ── 탭 전환 ──────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('panel-live').style.display = tab==='live' ? 'block' : 'none';
+  document.getElementById('panel-hist').style.display = tab==='hist' ? 'block' : 'none';
+  document.getElementById('tab-live').className = 'tab-btn ' + (tab==='live' ? 'active' : 'inactive');
+  document.getElementById('tab-hist').className = 'tab-btn ' + (tab==='hist' ? 'active' : 'inactive');
+  if (tab==='hist') loadHistData();
+}
+
+// ── 실시간 탭 ────────────────────────────────
+function setDir(dir) {
+  currentDir = dir;
+  document.getElementById('btn-go').className   = 'dir-btn ' + (dir==='GO' ? 'active' : 'inactive');
+  document.getElementById('btn-back').className = 'dir-btn ' + (dir==='BACK' ? 'active' : 'inactive');
+  document.getElementById('dir-label').textContent = (dir==='GO' ? '등교' : '하교') + ' 노선 기준 · 오늘';
+  renderRoutes();
+}
+
 function connectSSE() {
   if (sseSource) sseSource.close();
   sseSource = new EventSource(`${serverUrl()}/stream`);
-
   sseSource.onopen = () => {
     document.getElementById('liveDot').className = 'live-dot on';
     document.getElementById('liveText').textContent = '실시간 연결됨';
-    log('서버 SSE 연결됨', 'ok');
+    log('SSE 연결됨', 'ok');
   };
-
   sseSource.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (d.type === 'seats') {
-        seatsData[d.busId] = d;
-        renderRoutes();
-      }
+      if (d.type === 'seats') { seatsData[d.busId] = d; renderRoutes(); }
     } catch(err) {}
   };
-
   sseSource.onerror = () => {
     document.getElementById('liveDot').className = 'live-dot';
     document.getElementById('liveText').textContent = '연결 끊김';
@@ -311,64 +382,163 @@ function connectSSE() {
   };
 }
 
-// ── 초기 좌석 데이터 로드 ────────────────────
 async function loadSeats() {
   try {
     const res = await fetch(`${serverUrl()}/seats`);
     const data = await res.json();
     Object.values(data).forEach(info => { seatsData[info.busId] = info; });
     renderRoutes();
-    log('좌석 현황 로드 완료', 'ok');
-  } catch(e) {
-    log(`좌석 로드 실패: ${e.message}`, 'err');
-  }
+    log('좌석 현황 로드', 'ok');
+  } catch(e) { log(`로드 실패: ${e.message}`, 'err'); }
 }
 
-// ── 노선 목록 렌더링 ─────────────────────────
 function renderRoutes() {
   const container = document.getElementById('routeList');
-  let totalReserved = 0, totalAvailable = 0, totalCapacity = 0;
+  let totalReserved=0, totalAvailable=0, totalCapacity=0;
 
   container.innerHTML = ROUTES.map(r => {
     const isGo = currentDir === 'GO';
-    const cur  = seatsData[isGo ? r.busId : r.busIdBack] || { reserved: 0, total: 45, available: 45 };
+    const busId = isGo ? r.busId : r.busIdBack;
+    const cur = seatsData[busId] || { reserved:0, total: TOTAL_SEATS[busId]||45, available: TOTAL_SEATS[busId]||45 };
 
     totalReserved  += cur.reserved;
     totalAvailable += cur.available;
     totalCapacity  += cur.total;
 
     const rate = Math.round((cur.reserved / cur.total) * 100);
-    const barColor = rate >= 90 ? '#E24B4A' : rate >= 60 ? '#EF9F27' : '#1D9E75';
-    const numClass = rate >= 90 ? 'full' : rate >= 60 ? 'warn' : 'ok';
+    const barColor = rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#1D9E75';
+    const numClass = rate>=90?'full':rate>=60?'warn':'ok';
     const dirLabel = isGo ? '등교' : '하교';
-    const resetBusId = isGo ? r.busId : r.busIdBack;
+
+    // 정류장별 집계 (seatsData에 stops 있으면 표시)
+    const stopInfo = cur.stops || {};
+    const stopTags = Object.entries(stopInfo).length > 0
+      ? Object.entries(stopInfo).map(([s,c])=>`<div class="stop-tag">${s} <span>${c}명</span></div>`).join('')
+      : r.stops.map(s=>`<div class="stop-tag">${s} <span>0명</span></div>`).join('');
 
     return `
-      <div class="route-row">
-        <div>
-          <div class="route-name">${r.name}</div>
-          <div class="route-dir">${dirLabel} ${cur.reserved}명 예약 / 잔여 ${cur.available}석</div>
-          <div class="seats-bar" style="margin-top:6px">
-            <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
+      <div style="border-bottom:1px solid #1e1e2a">
+        <div class="route-row" style="border-bottom:none">
+          <div>
+            <div class="route-name">${r.name}</div>
+            <div class="route-dir">${dirLabel} ${cur.reserved}명 / 잔여 ${cur.available}석</div>
+            <div class="seats-bar" style="margin-top:6px">
+              <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
+            </div>
+            <div class="stop-tag-row" style="margin-top:6px">${stopTags}</div>
           </div>
-        </div>
-        <div class="seats-num">${cur.reserved}</div>
-        <div class="seats-num ${numClass}">${cur.available}</div>
-        <div class="seats-num" style="color:#888">${rate}%</div>
-        <div>
-          <div class="btn-reset" onclick="confirmReset('${resetBusId}', '${r.name} ${dirLabel}')">초기화</div>
+          <div class="seats-num">${cur.reserved}</div>
+          <div class="seats-num ${numClass}">${cur.available}</div>
+          <div class="seats-num" style="color:#888">${rate}%</div>
+          <div><div class="btn-reset" onclick="confirmReset('${busId}','${r.name} ${dirLabel}')">초기화</div></div>
         </div>
       </div>`;
   }).join('');
 
-  // 통계 업데이트
   document.getElementById('stat-total').textContent = totalReserved;
   document.getElementById('stat-seats').textContent = totalAvailable;
-  const avgRate = totalCapacity > 0 ? Math.round((totalReserved / totalCapacity) * 100) : 0;
+  const avgRate = totalCapacity>0 ? Math.round((totalReserved/totalCapacity)*100) : 0;
   document.getElementById('stat-rate').textContent = avgRate + '%';
 }
 
-// ── 초기화 확인 모달 ─────────────────────────
+// ── 날짜별 탭 ────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function setHistDir(dir) {
+  histDir = dir;
+  document.getElementById('hbtn-go').className  = 'dir-btn ' + (dir==='GO' ? 'active' : 'inactive');
+  document.getElementById('hbtn-back').className = 'dir-btn ' + (dir==='BACK' ? 'active' : 'inactive');
+  if (histData) renderHistRoutes(histData);
+}
+
+function moveDate(delta) {
+  const input = document.getElementById('histDate');
+  const d = new Date(input.value || todayStr());
+  d.setDate(d.getDate() + delta);
+  input.value = d.toISOString().slice(0,10);
+  loadHistData();
+}
+
+function goToday() {
+  document.getElementById('histDate').value = todayStr();
+  loadHistData();
+}
+
+async function loadHistData() {
+  const date = document.getElementById('histDate').value || todayStr();
+  try {
+    const res = await fetch(`${serverUrl()}/reservations?date=${date}`);
+    histData = await res.json();
+    renderHistRoutes(histData);
+  } catch(e) {
+    document.getElementById('histRouteList').innerHTML =
+      `<div style="padding:20px;color:#555;text-align:center">데이터 없음</div>`;
+  }
+}
+
+function renderHistRoutes(data) {
+  const date = data.date;
+  const summary = data.summary || {};
+  const DAYS = ['일','월','화','수','목','금','토'];
+  const d = new Date(date);
+  const dateLabel = `${date} (${DAYS[d.getDay()]})`;
+
+  document.getElementById('hist-title').textContent = `${dateLabel} 예약 현황`;
+  document.getElementById('hist-sub').textContent = histDir==='GO' ? '등교 기준' : '하교 기준';
+
+  let totalReserved=0, activeRoutes=0, totalCapacity=0;
+
+  const html = ROUTES.map(r => {
+    const busId = histDir==='GO' ? r.busId : r.busIdBack;
+    const info = summary[busId] || { total:0, stops:{}, list:[] };
+    const total = TOTAL_SEATS[busId] || 45;
+    const reserved = info.total || 0;
+    const rate = Math.round((reserved/total)*100);
+    const barColor = rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#534AB7';
+
+    totalReserved += reserved;
+    totalCapacity += total;
+    if (reserved > 0) activeRoutes++;
+
+    const stopRows = Object.entries(info.stops||{}).map(([stop,cnt])=>`
+      <div class="hist-row">
+        <span class="hist-label">  └ ${stop}</span>
+        <div class="hist-bar-wrap"><div class="hist-bar-fill" style="width:${Math.round(cnt/total*100)}%;background:${barColor}"></div></div>
+        <span class="hist-val">${cnt}명</span>
+      </div>`).join('');
+
+    const noDataStyle = reserved===0 ? 'opacity:.4' : '';
+
+    return `
+      <div style="border-bottom:1px solid #1e1e2a;${noDataStyle}">
+        <div style="padding:12px 20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <span style="font-size:13px;font-weight:500">${r.name}</span>
+              <span style="font-size:11px;color:#555;margin-left:8px">${histDir==='GO'?'등교':'하교'}</span>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:${rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#1D9E75'}">${reserved}명 / ${total}석</span>
+          </div>
+          <div class="seats-bar" style="margin-bottom:8px">
+            <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
+          </div>
+          ${stopRows || `<div style="font-size:11px;color:#444;padding:4px 0">예약 없음</div>`}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('histRouteList').innerHTML = html ||
+    '<div style="padding:20px;color:#555;text-align:center">데이터 없음</div>';
+
+  document.getElementById('hstat-total').textContent = totalReserved;
+  document.getElementById('hstat-routes').textContent = activeRoutes;
+  const avgRate = totalCapacity>0 ? Math.round((totalReserved/totalCapacity)*100) : 0;
+  document.getElementById('hstat-rate').textContent = avgRate + '%';
+}
+
+// ── 초기화 ───────────────────────────────────
 let pendingReset = null;
 
 function confirmReset(busId, label) {
@@ -376,7 +546,7 @@ function confirmReset(busId, label) {
   const isAll = !busId;
   document.getElementById('modal-title').textContent = isAll ? '전체 초기화' : `${label} 초기화`;
   document.getElementById('modal-desc').textContent = isAll
-    ? '모든 노선의 예약 데이터를 초기화합니다.\n이 작업은 되돌릴 수 없습니다.'
+    ? '오늘 모든 노선의 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.'
     : `[${label}] 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`;
   document.getElementById('modal').classList.add('show');
 }
@@ -390,8 +560,7 @@ document.getElementById('modal-confirm').onclick = async () => {
   const target = pendingReset;
   closeModal();
   if (!target) return;
-  const { busId, label } = target;
-  await doReset(busId || null, label || '전체');
+  await doReset(target.busId || null, target.label || '전체');
 };
 
 async function doReset(busId, label) {
@@ -408,13 +577,11 @@ async function doReset(busId, label) {
     } else {
       log(`[초기화 실패] ${label}`, 'err');
     }
-  } catch(e) {
-    log(`[초기화 오류] ${e.message}`, 'err');
-  }
+  } catch(e) { log(`[초기화 오류] ${e.message}`, 'err'); }
 }
 
-// ── 초기화 ───────────────────────────────────
 async function init() {
+  document.getElementById('histDate').value = todayStr();
   await loadSeats();
   connectSSE();
 }
