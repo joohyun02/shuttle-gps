@@ -331,6 +331,7 @@ let currentDir = 'GO';
 let histDir = 'GO';
 let currentTab = 'live';
 let seatsData = {};
+let stopSummary = {}; // busId → { stops: {정류장명: 인원수} }
 let histData = null;
 let sseSource = null;
 
@@ -372,7 +373,7 @@ function connectSSE() {
   sseSource.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (d.type === 'seats') { seatsData[d.busId] = d; renderRoutes(); }
+      if (d.type === 'seats') { seatsData[d.busId] = d; loadSeats(); }
     } catch(err) {}
   };
   sseSource.onerror = () => {
@@ -384,9 +385,24 @@ function connectSSE() {
 
 async function loadSeats() {
   try {
-    const res = await fetch(`${serverUrl()}/seats`);
-    const data = await res.json();
-    Object.values(data).forEach(info => { seatsData[info.busId] = info; });
+    const today = new Date().toISOString().slice(0,10);
+    // 좌석 현황 + 정류장별 집계 동시 로드
+    const [seatsRes, resrvRes] = await Promise.all([
+      fetch(`${serverUrl()}/seats`),
+      fetch(`${serverUrl()}/reservations?date=${today}`)
+    ]);
+    const seatsJson = await seatsRes.json();
+    const resrvJson = await resrvRes.json();
+
+    Object.values(seatsJson).forEach(info => { seatsData[info.busId] = info; });
+
+    // 정류장별 집계 저장
+    stopSummary = {};
+    if (resrvJson.summary) {
+      Object.entries(resrvJson.summary).forEach(([busId, info]) => {
+        stopSummary[busId] = info.stops || {};
+      });
+    }
     renderRoutes();
     log('좌석 현황 로드', 'ok');
   } catch(e) { log(`로드 실패: ${e.message}`, 'err'); }
@@ -410,11 +426,12 @@ function renderRoutes() {
     const numClass = rate>=90?'full':rate>=60?'warn':'ok';
     const dirLabel = isGo ? '등교' : '하교';
 
-    // 정류장별 집계 (seatsData에 stops 있으면 표시)
-    const stopInfo = cur.stops || {};
-    const stopTags = Object.entries(stopInfo).length > 0
-      ? Object.entries(stopInfo).map(([s,c])=>`<div class="stop-tag">${s} <span>${c}명</span></div>`).join('')
-      : r.stops.map(s=>`<div class="stop-tag">${s} <span>0명</span></div>`).join('');
+    // 정류장별 집계 (stopSummary에서 가져오기)
+    const stopInfo = stopSummary[busId] || {};
+    const stopTags = r.stops.map(s => {
+      const cnt = stopInfo[s] || 0;
+      return `<div class="stop-tag">${s} <span>${cnt}명</span></div>`;
+    }).join('');
 
     return `
       <div style="border-bottom:1px solid #1e1e2a">
