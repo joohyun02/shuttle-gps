@@ -536,7 +536,10 @@ function renderHistRoutes(data) {
               <span style="font-size:13px;font-weight:500">${r.name}</span>
               <span style="font-size:11px;color:#555;margin-left:8px">${histDir==='GO'?'등교':'하교'}</span>
             </div>
-            <span style="font-size:13px;font-weight:600;color:${rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#1D9E75'}">${reserved}명 / ${total}석</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:13px;font-weight:600;color:${rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#1D9E75'}">${reserved}명 / ${total}석</span>
+              ${reserved>0 ? `<div class="btn-reset" style="font-size:10px;padding:3px 8px" onclick="confirmReset('${busId}','${r.name} ${histDir==='GO'?'등교':'하교'}','${date}')">초기화</div>` : ''}
+            </div>
           </div>
           <div class="seats-bar" style="margin-bottom:8px">
             <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
@@ -558,13 +561,15 @@ function renderHistRoutes(data) {
 // ── 초기화 ───────────────────────────────────
 let pendingReset = null;
 
-function confirmReset(busId, label) {
-  pendingReset = { busId, label };
+function confirmReset(busId, label, date) {
+  const d = date || todayStr();
+  pendingReset = { busId, label, date: d };
   const isAll = !busId;
-  document.getElementById('modal-title').textContent = isAll ? '전체 초기화' : `${label} 초기화`;
+  const dateLabel = d === todayStr() ? '오늘' : d;
+  document.getElementById('modal-title').textContent = isAll ? `전체 초기화 (${dateLabel})` : `${label} 초기화`;
   document.getElementById('modal-desc').textContent = isAll
-    ? '오늘 모든 노선의 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.'
-    : `[${label}] 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`;
+    ? `${dateLabel} 모든 노선의 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`
+    : `[${dateLabel}] [${label}] 예약을 초기화합니다.\n이 작업은 되돌릴 수 없습니다.`;
   document.getElementById('modal').classList.add('show');
 }
 
@@ -577,20 +582,22 @@ document.getElementById('modal-confirm').onclick = async () => {
   const target = pendingReset;
   closeModal();
   if (!target) return;
-  await doReset(target.busId || null, target.label || '전체');
+  await doReset(target.busId || null, target.label || '전체', target.date);
 };
 
-async function doReset(busId, label) {
+async function doReset(busId, label, date) {
+  const d = date || todayStr();
   try {
     const res = await fetch(`${serverUrl()}/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(busId ? { busId } : {})
+      body: JSON.stringify(busId ? { busId, date: d } : { date: d })
     });
     const data = await res.json();
     if (data.ok) {
-      log(`[초기화 완료] ${label}`, 'ok');
+      log(`[초기화 완료] ${d} ${label}`, 'ok');
       await loadSeats();
+      if (histData) loadHistData(); // 날짜별 탭도 갱신
     } else {
       log(`[초기화 실패] ${label}`, 'err');
     }
