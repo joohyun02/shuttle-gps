@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>🚌 버스 위치 송신</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -17,7 +18,16 @@ body {
   padding: 24px 16px;
 }
 h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-.sub { font-size: 13px; color: #888; margin-bottom: 28px; }
+.sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+/* 탭 */
+.main-tabs { display: flex; gap: 6px; width: 100%; max-width: 360px; margin-bottom: 20px; }
+.main-tab { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #2a2a38; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; transition: all .15s; }
+.main-tab.active { background: #534AB7; color: #fff; border-color: #534AB7; }
+.main-tab.inactive { background: #1a1a24; color: #666; }
+.tab-content { display: none; width: 100%; max-width: 360px; flex-direction: column; align-items: center; }
+.tab-content.active { display: flex; }
+
 .card {
   width: 100%; max-width: 360px;
   background: #1a1a24; border: 1px solid #2a2a38;
@@ -75,12 +85,34 @@ select:disabled { opacity: .4; cursor: not-allowed; }
 .dir-btn.active   { background: #534AB7; color: #fff; }
 .dir-btn.inactive { background: #2a2a38; color: #666; }
 .dir-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* QR 스캔 */
+#qr-video-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
+#qr-video { width: 100%; display: block; }
+#qr-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.qr-frame { width: 180px; height: 180px; border: 2px solid #534AB7; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,.5); }
+.scan-result {
+  width: 100%; border-radius: 14px; padding: 20px; text-align: center;
+  margin-bottom: 12px; font-size: 15px; font-weight: 600;
+}
+.scan-ok   { background: #0d2e1f; border: 1px solid #1D9E75; color: #1D9E75; }
+.scan-err  { background: #2e0d0d; border: 1px solid #E24B4A; color: #E24B4A; }
+.scan-info { font-size: 12px; font-weight: 400; color: #888; margin-top: 6px; }
 </style>
 </head>
 <body>
 
-<h1>🚌 버스 위치 송신</h1>
-<p class="sub">기사 폰 → Railway 서버 → 학생 앱 지도</p>
+<h1>🚌 위치 송신</h1>
+<p class="sub">GPS 송신 · QR 탑승 스캔</p>
+
+<!-- 메인 탭 -->
+<div class="main-tabs">
+  <button class="main-tab active" onclick="switchTab('gps')">📡 GPS 송신</button>
+  <button class="main-tab inactive" onclick="switchTab('scan')">📷 QR 스캔</button>
+</div>
+
+<!-- ── GPS 탭 ── -->
+<div class="tab-content active" id="tab-gps">
 
 <!-- ========================================
   ✏️ 유지보수 가이드 - 노선 추가/수정 방법
@@ -148,6 +180,32 @@ select:disabled { opacity: .4; cursor: not-allowed; }
 
 <div class="log" id="log"></div>
 
+</div> <!-- /tab-gps -->
+
+<!-- ── QR 스캔 탭 ── -->
+<div class="tab-content" id="tab-scan">
+
+  <div class="card">
+    <div class="card-title">카메라 QR 스캔</div>
+    <div id="qr-video-wrap">
+      <video id="qr-video" playsinline autoplay muted></video>
+      <div id="qr-overlay"><div class="qr-frame"></div></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-start" style="margin:0;padding:12px;font-size:14px" onclick="startScan()">스캔 시작</button>
+      <button class="btn btn-stop"  style="margin:0;padding:12px;font-size:14px" onclick="stopScan()">중지</button>
+    </div>
+  </div>
+
+  <div id="scan-result" style="display:none"></div>
+
+  <div class="card">
+    <div class="card-title">최근 스캔 기록</div>
+    <div class="log" id="scan-log">스캔 대기 중...</div>
+  </div>
+
+</div> <!-- /tab-scan -->
+
 <script>
 // ========================================
 // ✏️ 노선 데이터 — 여기만 수정하면 됩니다!
@@ -204,8 +262,113 @@ function onRouteChange() {
     : '노선을 선택하면 전송이 시작됩니다';
 }
 
-// ========================================
-let watchId = null;
+// ── 탭 전환 ──────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('tab-gps').classList.toggle('active', tab === 'gps');
+  document.getElementById('tab-scan').classList.toggle('active', tab === 'scan');
+  document.querySelectorAll('.main-tab').forEach((el, i) => {
+    el.className = 'main-tab ' + ((i === 0 && tab === 'gps') || (i === 1 && tab === 'scan') ? 'active' : 'inactive');
+  });
+  if (tab !== 'scan') stopScan();
+}
+
+// ── QR 스캔 ──────────────────────────────────
+let scanStream = null;
+let scanAnimFrame = null;
+let lastScanned = null;
+let scanCooldown = false;
+
+function scanLog(msg, type = 'info') {
+  const el = document.getElementById('scan-log');
+  const time = new Date().toTimeString().slice(0, 8);
+  el.innerHTML = `<span class="log-${type}">[${time}] ${msg}</span>\n` + el.innerHTML;
+}
+
+async function startScan() {
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('qr-video');
+    video.srcObject = scanStream;
+    video.play();
+    video.onloadedmetadata = () => scanFrame();
+    scanLog('카메라 시작됨', 'ok');
+  } catch(e) {
+    scanLog('카메라 접근 실패: ' + e.message, 'err');
+  }
+}
+
+function stopScan() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  if (scanAnimFrame) { cancelAnimationFrame(scanAnimFrame); scanAnimFrame = null; }
+  const video = document.getElementById('qr-video');
+  video.srcObject = null;
+}
+
+function scanFrame() {
+  const video = document.getElementById('qr-video');
+  if (!scanStream || video.readyState !== video.HAVE_ENOUGH_DATA) {
+    scanAnimFrame = requestAnimationFrame(scanFrame);
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+
+  if (code && code.data && !scanCooldown) {
+    processQR(code.data);
+  }
+  scanAnimFrame = requestAnimationFrame(scanFrame);
+}
+
+async function processQR(token) {
+  if (token === lastScanned) return; // 동일 QR 반복 방지
+  lastScanned = token;
+  scanCooldown = true;
+  setTimeout(() => { scanCooldown = false; lastScanned = null; }, 3000);
+
+  const url = document.getElementById('serverUrl').value.trim();
+  const resultEl = document.getElementById('scan-result');
+  resultEl.style.display = 'block';
+  resultEl.className = 'scan-result';
+  resultEl.innerHTML = '⏳ 확인 중...';
+
+  try {
+    const res = await fetch(`${url}/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.ok) {
+      resultEl.className = 'scan-result scan-ok';
+      resultEl.innerHTML = `✅ 탑승 확인<div class="scan-info">${data.name} · ${data.busId} · ${new Date(data.boardedAt).toLocaleTimeString('ko-KR')}</div>`;
+      scanLog(`탑승확인: ${data.name} / ${data.busId}`, 'ok');
+    } else if (res.status === 409) {
+      resultEl.className = 'scan-result scan-err';
+      resultEl.innerHTML = `⚠️ 이미 탑승 처리됨<div class="scan-info">${new Date(data.boardedAt).toLocaleTimeString('ko-KR')} 처리됨</div>`;
+      scanLog('이미 탑승 처리된 승차권', 'err');
+    } else if (res.status === 404) {
+      resultEl.className = 'scan-result scan-err';
+      resultEl.innerHTML = `❌ 예약 없음<div class="scan-info">이 날짜에 예약 내역이 없습니다</div>`;
+      scanLog('예약 없음: ' + token, 'err');
+    } else {
+      resultEl.className = 'scan-result scan-err';
+      resultEl.innerHTML = `❌ 유효하지 않은 QR<div class="scan-info">${data.message || ''}</div>`;
+      scanLog('유효하지 않은 QR', 'err');
+    }
+  } catch(e) {
+    resultEl.className = 'scan-result scan-err';
+    resultEl.innerHTML = `❌ 서버 연결 실패<div class="scan-info">${e.message}</div>`;
+    scanLog('서버 연결 실패: ' + e.message, 'err');
+  }
+}
 let sendInterval = null;
 let lastCoords = null;
 let sendCount = 0;
