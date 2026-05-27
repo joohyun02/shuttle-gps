@@ -102,7 +102,7 @@ select:disabled { opacity: .4; cursor: not-allowed; }
 </head>
 <body>
 
-<h1>🚌 위치 송신</h1>
+<h1>🚌 기사 터미널</h1>
 <p class="sub">GPS 송신 · QR 탑승 스캔</p>
 
 <!-- 메인 탭 -->
@@ -286,14 +286,29 @@ function scanLog(msg, type = 'info') {
 
 async function startScan() {
   try {
-    scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+    // iOS Safari 호환: exact 대신 ideal, 후면카메라 우선
+    const constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      }
+    };
+    scanStream = await navigator.mediaDevices.getUserMedia(constraints);
     const video = document.getElementById('qr-video');
     video.srcObject = scanStream;
-    video.play();
-    video.onloadedmetadata = () => scanFrame();
-    scanLog('카메라 시작됨', 'ok');
+    video.setAttribute('playsinline', true); // iOS 필수
+    await video.play();
+    // videoWidth가 준비될 때까지 대기
+    const waitReady = () => {
+      if (video.videoWidth > 0) {
+        scanLog('카메라 시작됨 (' + video.videoWidth + 'x' + video.videoHeight + ')', 'ok');
+        scanFrame();
+      } else {
+        setTimeout(waitReady, 100);
+      }
+    };
+    waitReady();
   } catch(e) {
     scanLog('카메라 접근 실패: ' + e.message, 'err');
   }
@@ -308,7 +323,7 @@ function stopScan() {
 
 function scanFrame() {
   const video = document.getElementById('qr-video');
-  if (!scanStream || video.readyState !== video.HAVE_ENOUGH_DATA) {
+  if (!scanStream || !video.videoWidth || video.videoWidth === 0) {
     scanAnimFrame = requestAnimationFrame(scanFrame);
     return;
   }
@@ -316,9 +331,9 @@ function scanFrame() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
 
   if (code && code.data && !scanCooldown) {
     processQR(code.data);
