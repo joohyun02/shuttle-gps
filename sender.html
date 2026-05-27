@@ -355,14 +355,14 @@ async function processQR(token) {
   scanCooldown = true;
   setTimeout(() => { scanCooldown = false; lastScanned = null; }, 3000);
 
-  const url = document.getElementById('serverUrl').value.trim();
+  const baseUrl = window.location.origin;
   const resultEl = document.getElementById('scan-result');
   resultEl.style.display = 'block';
   resultEl.className = 'scan-result';
   resultEl.innerHTML = '⏳ 확인 중...';
 
   try {
-    const res = await fetch(`${url}/scan`, {
+    const res = await fetch(`${baseUrl}/scan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token })
