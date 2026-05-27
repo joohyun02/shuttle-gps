@@ -226,7 +226,7 @@ body {
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">총 예약 인원</div></div>
       <div class="stat-card"><div class="stat-num" id="stat-seats">0</div><div class="stat-label">총 잔여 좌석</div></div>
-      <div class="stat-card"><div class="stat-num" id="stat-rate">0%</div><div class="stat-label">평균 탑승률</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-rate">0%</div><div class="stat-label">예약 대비 탑승률</div></div>
     </div>
   </div>
 
@@ -243,7 +243,7 @@ body {
         <div>노선</div>
         <div style="text-align:center">예약</div>
         <div style="text-align:center">잔여</div>
-        <div style="text-align:center">탑승률</div>
+        <div style="text-align:center">탑승</div>
         <div style="text-align:center">초기화</div>
       </div>
       <div id="routeList"></div>
@@ -284,7 +284,7 @@ body {
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-num" id="hstat-total">0</div><div class="stat-label">총 예약 인원</div></div>
       <div class="stat-card"><div class="stat-num" id="hstat-routes">0</div><div class="stat-label">운행 노선 수</div></div>
-      <div class="stat-card"><div class="stat-num" id="hstat-rate">0%</div><div class="stat-label">평균 탑승률</div></div>
+      <div class="stat-card"><div class="stat-num" id="hstat-rate">0%</div><div class="stat-label">예약 대비 탑승률</div></div>
     </div>
   </div>
 
@@ -331,7 +331,7 @@ let currentDir = 'GO';
 let histDir = 'GO';
 let currentTab = 'live';
 let seatsData = {};
-let stopSummary = {}; // busId → { stops: {정류장명: 인원수} }
+let stopSummary = {}; // busId → { stops, boardedStops, boarded, reserved }
 let histData = null;
 let sseSource = null;
 
@@ -396,11 +396,24 @@ async function loadSeats() {
 
     Object.values(seatsJson).forEach(info => { seatsData[info.busId] = info; });
 
-    // 정류장별 집계 저장
+    // 정류장별 예약/탑승 집계 저장
     stopSummary = {};
     if (resrvJson.summary) {
       Object.entries(resrvJson.summary).forEach(([busId, info]) => {
-        stopSummary[busId] = info.stops || {};
+        const list = info.list || [];
+        const boardedList = list.filter(r => !!r.boardedAt);
+        const boardedStops = {};
+        boardedList.forEach(r => {
+          const stop = r.stopId || '미지정';
+          boardedStops[stop] = (boardedStops[stop] || 0) + 1;
+        });
+
+        stopSummary[busId] = {
+          stops: info.stops || {},
+          boardedStops,
+          reserved: info.total || list.length || 0,
+          boarded: boardedList.length
+        };
       });
     }
     renderRoutes();
@@ -410,27 +423,30 @@ async function loadSeats() {
 
 function renderRoutes() {
   const container = document.getElementById('routeList');
-  let totalReserved=0, totalAvailable=0, totalCapacity=0;
+  let totalReserved=0, totalAvailable=0, totalBoarded=0;
 
   container.innerHTML = ROUTES.map(r => {
     const isGo = currentDir === 'GO';
     const busId = isGo ? r.busId : r.busIdBack;
     const cur = seatsData[busId] || { reserved:0, total: TOTAL_SEATS[busId]||45, available: TOTAL_SEATS[busId]||45 };
+    const summary = stopSummary[busId] || { stops:{}, boardedStops:{}, reserved:cur.reserved, boarded:0 };
+    const boarded = summary.boarded || 0;
 
     totalReserved  += cur.reserved;
     totalAvailable += cur.available;
-    totalCapacity  += cur.total;
+    totalBoarded   += boarded;
 
-    const rate = Math.round((cur.reserved / cur.total) * 100);
-    const barColor = rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#1D9E75';
-    const numClass = rate>=90?'full':rate>=60?'warn':'ok';
+    const reserveRate = Math.round((cur.reserved / cur.total) * 100);
+    const boardRate = cur.reserved > 0 ? Math.round((boarded / cur.reserved) * 100) : 0;
+    const barColor = boardRate>=90?'#1D9E75':boardRate>=60?'#EF9F27':'#534AB7';
+    const numClass = cur.available<=0?'full':cur.available<=5?'warn':'ok';
     const dirLabel = isGo ? '등교' : '하교';
 
-    // 정류장별 집계 (stopSummary에서 가져오기)
-    const stopInfo = stopSummary[busId] || {};
+    // 정류장별 집계: 예약 / 실제 탑승
     const stopTags = r.stops.map(s => {
-      const cnt = stopInfo[s] || 0;
-      return `<div class="stop-tag">${s} <span>${cnt}명</span></div>`;
+      const reservedCnt = (summary.stops || {})[s] || 0;
+      const boardedCnt = (summary.boardedStops || {})[s] || 0;
+      return `<div class="stop-tag">${s} <span>${boardedCnt}/${reservedCnt}명</span></div>`;
     }).join('');
 
     return `
@@ -438,15 +454,15 @@ function renderRoutes() {
         <div class="route-row" style="border-bottom:none">
           <div>
             <div class="route-name">${r.name}</div>
-            <div class="route-dir">${dirLabel} ${cur.reserved}명 / 잔여 ${cur.available}석</div>
+            <div class="route-dir">${dirLabel} 예약 ${cur.reserved}명 · 탑승 ${boarded}명 · 잔여 ${cur.available}석</div>
             <div class="seats-bar" style="margin-top:6px">
-              <div class="seats-bar-fill" style="width:${rate}%;background:${barColor}"></div>
+              <div class="seats-bar-fill" style="width:${boardRate}%;background:${barColor}"></div>
             </div>
             <div class="stop-tag-row" style="margin-top:6px">${stopTags}</div>
           </div>
           <div class="seats-num">${cur.reserved}</div>
           <div class="seats-num ${numClass}">${cur.available}</div>
-          <div class="seats-num" style="color:#888">${rate}%</div>
+          <div class="seats-num" style="color:#888">${boarded}명<br><span style="font-size:10px;color:#555">${boardRate}%</span></div>
           <div><div class="btn-reset" onclick="confirmReset('${busId}','${r.name} ${dirLabel}')">초기화</div></div>
         </div>
       </div>`;
@@ -454,7 +470,7 @@ function renderRoutes() {
 
   document.getElementById('stat-total').textContent = totalReserved;
   document.getElementById('stat-seats').textContent = totalAvailable;
-  const avgRate = totalCapacity>0 ? Math.round((totalReserved/totalCapacity)*100) : 0;
+  const avgRate = totalReserved>0 ? Math.round((totalBoarded/totalReserved)*100) : 0;
   document.getElementById('stat-rate').textContent = avgRate + '%';
 }
 
@@ -502,29 +518,40 @@ function renderHistRoutes(data) {
   const d = new Date(date);
   const dateLabel = `${date} (${DAYS[d.getDay()]})`;
 
-  document.getElementById('hist-title').textContent = `${dateLabel} 예약 현황`;
+  document.getElementById('hist-title').textContent = `${dateLabel} 예약/탑승 현황`;
   document.getElementById('hist-sub').textContent = histDir==='GO' ? '등교 기준' : '하교 기준';
 
-  let totalReserved=0, activeRoutes=0, totalCapacity=0;
+  let totalReserved=0, totalBoarded=0, activeRoutes=0;
 
   const html = ROUTES.map(r => {
     const busId = histDir==='GO' ? r.busId : r.busIdBack;
     const info = summary[busId] || { total:0, stops:{}, list:[] };
     const total = TOTAL_SEATS[busId] || 45;
     const reserved = info.total || 0;
-    const rate = Math.round((reserved/total)*100);
-    const barColor = rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#534AB7';
+    const boardedList = (info.list || []).filter(x => !!x.boardedAt);
+    const boarded = boardedList.length;
+    const rate = reserved > 0 ? Math.round((boarded/reserved)*100) : 0;
+    const barColor = rate>=90?'#1D9E75':rate>=60?'#EF9F27':'#534AB7';
 
     totalReserved += reserved;
-    totalCapacity += total;
+    totalBoarded += boarded;
     if (reserved > 0) activeRoutes++;
 
-    const stopRows = Object.entries(info.stops||{}).map(([stop,cnt])=>`
+    const boardedStops = {};
+    boardedList.forEach(x => {
+      const stop = x.stopId || '미지정';
+      boardedStops[stop] = (boardedStops[stop] || 0) + 1;
+    });
+
+    const stopRows = Object.entries(info.stops||{}).map(([stop,cnt])=>{
+      const boardedCnt = boardedStops[stop] || 0;
+      return `
       <div class="hist-row">
         <span class="hist-label">  └ ${stop}</span>
-        <div class="hist-bar-wrap"><div class="hist-bar-fill" style="width:${Math.round(cnt/total*100)}%;background:${barColor}"></div></div>
-        <span class="hist-val">${cnt}명</span>
-      </div>`).join('');
+        <div class="hist-bar-wrap"><div class="hist-bar-fill" style="width:${cnt ? Math.round(boardedCnt/cnt*100) : 0}%;background:${barColor}"></div></div>
+        <span class="hist-val">탑승 ${boardedCnt}/${cnt}명</span>
+      </div>`;
+    }).join('');
 
     const noDataStyle = reserved===0 ? 'opacity:.4' : '';
 
@@ -537,7 +564,7 @@ function renderHistRoutes(data) {
               <span style="font-size:11px;color:#555;margin-left:8px">${histDir==='GO'?'등교':'하교'}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:13px;font-weight:600;color:${rate>=90?'#E24B4A':rate>=60?'#EF9F27':'#1D9E75'}">${reserved}명 / ${total}석</span>
+              <span style="font-size:13px;font-weight:600;color:${rate>=90?'#1D9E75':rate>=60?'#EF9F27':'#534AB7'}">탑승 ${boarded}/${reserved}명 · ${rate}%</span>
               ${reserved>0 ? `<div class="btn-reset" style="font-size:10px;padding:3px 8px" onclick="confirmReset('${busId}','${r.name} ${histDir==='GO'?'등교':'하교'}','${date}')">초기화</div>` : ''}
             </div>
           </div>
@@ -554,7 +581,7 @@ function renderHistRoutes(data) {
 
   document.getElementById('hstat-total').textContent = totalReserved;
   document.getElementById('hstat-routes').textContent = activeRoutes;
-  const avgRate = totalCapacity>0 ? Math.round((totalReserved/totalCapacity)*100) : 0;
+  const avgRate = totalReserved>0 ? Math.round((totalBoarded/totalReserved)*100) : 0;
   document.getElementById('hstat-rate').textContent = avgRate + '%';
 }
 
