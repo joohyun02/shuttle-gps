@@ -284,6 +284,125 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ⓖ QR 탑승 스캔 POST /scan
+// token 형식: studentId|busId|date
+if (req.method === 'POST' && url.pathname === '/scan') {
+  let body = '';
+
+  req.on('data', chunk => body += chunk);
+
+  req.on('end', () => {
+    try {
+
+      const { token } = JSON.parse(body || '{}');
+
+      if (!token || typeof token !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+
+        res.end(JSON.stringify({
+          ok: false,
+          error: 'TOKEN_REQUIRED',
+          message: 'QR 토큰이 없습니다'
+        }));
+
+        return;
+      }
+
+      const parts = token.split('|');
+
+      if (parts.length !== 3) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+
+        res.end(JSON.stringify({
+          ok: false,
+          error: 'INVALID_TOKEN',
+          message: 'QR 토큰 형식이 올바르지 않습니다'
+        }));
+
+        return;
+      }
+
+      const [studentId, busId, date] = parts;
+
+      const data = loadReservations(date);
+
+      const list = data[busId] || [];
+
+      const reservation =
+        list.find(r => r.studentId === studentId);
+
+      if (!reservation) {
+
+        res.writeHead(404, {
+          'Content-Type': 'application/json'
+        });
+
+        res.end(JSON.stringify({
+          ok: false,
+          error: 'NOT_RESERVED',
+          message: '예약 내역이 없습니다'
+        }));
+
+        return;
+      }
+
+      // 이미 탑승 처리됨
+      if (reservation.boardedAt) {
+
+        res.writeHead(409, {
+          'Content-Type': 'application/json'
+        });
+
+        res.end(JSON.stringify({
+          ok: false,
+          error: 'ALREADY_BOARDED',
+          name: reservation.name || '학생',
+          busId,
+          boardedAt: reservation.boardedAt
+        }));
+
+        return;
+      }
+
+      // 탑승 처리
+      reservation.boardedAt = Date.now();
+
+      saveReservations(date, data);
+
+      console.log(
+        `[탑승스캔] ${studentId} / ${busId}`
+      );
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json'
+      });
+
+      res.end(JSON.stringify({
+        ok: true,
+        name: reservation.name || '학생',
+        studentId,
+        busId,
+        boardedAt: reservation.boardedAt
+      }));
+
+    } catch(e) {
+
+      console.error(e);
+
+      res.writeHead(400, {
+        'Content-Type': 'application/json'
+      });
+
+      res.end(JSON.stringify({
+        ok: false,
+        error: 'BAD_REQUEST'
+      }));
+    }
+  });
+
+  return;
+}
+
   // ─── SSE 구독 ─────────────────────────────────
   if (req.method === 'GET' && url.pathname === '/stream') {
     const busId = url.searchParams.get('busId') || null;
@@ -349,4 +468,5 @@ server.listen(PORT, () => {
   console.log('  GET  /stream?busId=         SSE 구독');
   console.log('  GET  /buses                 전체 위치');
   console.log('====================================\n');
+  console.log('  POST /scan                  QR 탑승 스캔');
 });
