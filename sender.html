@@ -341,8 +341,16 @@ function scanFrame() {
   scanAnimFrame = requestAnimationFrame(scanFrame);
 }
 
+function formatTime(ts) {
+  const d = new Date(ts);
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
 async function processQR(token) {
-  if (token === lastScanned) return; // 동일 QR 반복 방지
+  if (token === lastScanned) return;
   lastScanned = token;
   scanCooldown = true;
   setTimeout(() => { scanCooldown = false; lastScanned = null; }, 3000);
@@ -363,11 +371,11 @@ async function processQR(token) {
 
     if (res.ok && data.ok) {
       resultEl.className = 'scan-result scan-ok';
-      resultEl.innerHTML = `✅ 탑승 확인<div class="scan-info">${data.name} · ${data.busId} · ${new Date(data.boardedAt).toLocaleTimeString('ko-KR')}</div>`;
+      resultEl.innerHTML = `✅ 탑승 확인<div class="scan-info">${data.name} · ${data.busId} · ${formatTime(data.boardedAt)}</div>`;
       scanLog(`탑승확인: ${data.name} / ${data.busId}`, 'ok');
     } else if (res.status === 409) {
       resultEl.className = 'scan-result scan-err';
-      resultEl.innerHTML = `⚠️ 이미 탑승 처리됨<div class="scan-info">${new Date(data.boardedAt).toLocaleTimeString('ko-KR')} 처리됨</div>`;
+      resultEl.innerHTML = `⚠️ 이미 탑승 처리됨<div class="scan-info">${formatTime(data.boardedAt)} 처리됨</div>`;
       scanLog('이미 탑승 처리된 승차권', 'err');
     } else if (res.status === 404) {
       resultEl.className = 'scan-result scan-err';
