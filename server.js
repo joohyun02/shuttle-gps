@@ -65,20 +65,6 @@ function broadcastSeats(busId) {
   });
 }
 
-// ── 탑승 기록 ────────────────────────────────
-function boardingFile(date) {
-  return path.join(DATA_DIR, `boarding_${date}.json`);
-}
-function loadBoarding(date) {
-  const file = boardingFile(date);
-  if (!fs.existsSync(file)) return [];
-  try { return JSON.parse(fs.readFileSync(file, 'utf-8')); }
-  catch(e) { return []; }
-}
-function saveBoarding(date, data) {
-  fs.writeFileSync(boardingFile(date), JSON.stringify(data, null, 2), 'utf-8');
-}
-
 // ── GPS 관련 ─────────────────────────────────
 const busLocations = {};
 const activeSenders = {};
@@ -256,71 +242,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ⓖ QR 스캔 POST /scan
-  // QR 토큰 형식: "studentId|busId|date"
-  if (req.method === 'POST' && url.pathname === '/scan') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        const { token } = JSON.parse(body);
-        if (!token) {
-          res.writeHead(400); res.end(JSON.stringify({ error: 'token 필수' })); return;
-        }
-
-        const parts = token.split('|');
-        if (parts.length !== 3) {
-          res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'INVALID_TOKEN', message: '유효하지 않은 QR입니다' })); return;
-        }
-
-        const [studentId, busId, date] = parts;
-
-        // 예약 확인
-        const reservations = loadReservations(date);
-        const list = reservations[busId] || [];
-        const reservation = list.find(r => r.studentId === studentId);
-
-        if (!reservation) {
-          res.writeHead(404); res.end(JSON.stringify({ ok: false, error: 'NOT_RESERVED', message: '예약 내역이 없습니다' })); return;
-        }
-
-        // 이미 탑승 처리된 경우
-        const boarding = loadBoarding(date);
-        const alreadyBoarded = boarding.find(b => b.studentId === studentId && b.busId === busId);
-        if (alreadyBoarded) {
-          res.writeHead(409); res.end(JSON.stringify({ ok: false, error: 'ALREADY_BOARDED', message: '이미 탑승 처리된 승차권입니다', boardedAt: alreadyBoarded.boardedAt })); return;
-        }
-
-        // 탑승 기록 저장
-        const record = {
-          studentId,
-          busId,
-          name: reservation.name || '학생',
-          stopId: reservation.stopId || null,
-          boardedAt: Date.now()
-        };
-        boarding.push(record);
-        saveBoarding(date, boarding);
-
-        console.log(`[탑승] busId=${busId} studentId=${studentId} date=${date}`);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, message: '탑승 확인 완료', ...record }));
-      } catch(e) {
-        res.writeHead(400); res.end(JSON.stringify({ error: 'invalid JSON' }));
-      }
-    });
-    return;
-  }
-
-  // ⓗ 탑승 기록 조회 GET /boarding?date=2026-05-26
-  if (req.method === 'GET' && url.pathname === '/boarding') {
-    const date = url.searchParams.get('date') || todayStr();
-    const boarding = loadBoarding(date);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ date, boarding, count: boarding.length }));
-    return;
-  }
-
   // ─── GPS 위치 API ─────────────────────────────
   if (req.method === 'POST' && url.pathname === '/location') {
     let body = '';
@@ -404,6 +325,11 @@ const server = http.createServer((req, res) => {
       res.end(fs.readFileSync(filePath));
       return;
     }
+    if (fs.existsSync(filePath) && filePath.endsWith('.js')) {
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      res.end(fs.readFileSync(filePath));
+      return;
+    }
   }
 
   res.writeHead(404); res.end('Not found');
@@ -420,8 +346,6 @@ server.listen(PORT, () => {
   console.log('  GET  /seats?date=           좌석 현황');
   console.log('  GET  /reservations?date=    날짜별 예약 상세');
   console.log('  GET  /dates                 저장된 날짜 목록');
-  console.log('  POST /scan                  QR 탑승 스캔');
-  console.log('  GET  /boarding?date=        탑승 기록 조회');
   console.log('  GET  /stream?busId=         SSE 구독');
   console.log('  GET  /buses                 전체 위치');
   console.log('====================================\n');
