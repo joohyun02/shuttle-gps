@@ -200,10 +200,11 @@ body {
   <button onclick="init()">연결</button>
 </div>
 
-<!-- 메인탭 (실시간 / 날짜별) -->
+<!-- 메인탭 (실시간 / 날짜별 / 공지사항) -->
 <div class="tab-row">
   <button id="tab-live" class="tab-btn active" onclick="switchTab('live')">📡 실시간 현황</button>
   <button id="tab-hist" class="tab-btn inactive" onclick="switchTab('hist')">📅 날짜별 조회</button>
+  <button id="tab-notice" class="tab-btn inactive" onclick="switchTab('notice')">📢 공지사항</button>
 </div>
 
 <!-- ══ 실시간 탭 ══ -->
@@ -309,6 +310,27 @@ body {
   </div>
 </div>
 
+<!-- ══ 공지사항 탭 ══ -->
+<div id="panel-notice" style="display:none">
+  <!-- 공지 작성 폼 -->
+  <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:14px;padding:16px;margin-bottom:12px">
+    <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">공지 작성</div>
+    <input id="notice-title" type="text" placeholder="제목"
+      style="width:100%;background:#111118;border:1px solid #2a2a38;border-radius:8px;padding:10px 12px;color:#ccc;font-size:13px;margin-bottom:8px;outline:none">
+    <textarea id="notice-content" placeholder="내용" rows="3"
+      style="width:100%;background:#111118;border:1px solid #2a2a38;border-radius:8px;padding:10px 12px;color:#ccc;font-size:13px;resize:none;outline:none;font-family:inherit"></textarea>
+    <button onclick="postNotice()"
+      style="margin-top:10px;width:100%;padding:12px;background:#534AB7;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">
+      공지 등록
+    </button>
+  </div>
+
+  <!-- 공지 목록 -->
+  <div id="notice-list">
+    <div style="text-align:center;padding:20px;font-size:12px;color:#555">불러오는 중...</div>
+  </div>
+</div>
+
 <script>
 const ROUTES = [
   { busId: 'BUS-001-GO', busIdBack: 'BUS-001-BACK', name: '신도림·광명', stops: ['신도림','광명'] },
@@ -346,11 +368,68 @@ function log(msg, type='info') {
 // ── 탭 전환 ──────────────────────────────────
 function switchTab(tab) {
   currentTab = tab;
-  document.getElementById('panel-live').style.display = tab==='live' ? 'block' : 'none';
-  document.getElementById('panel-hist').style.display = tab==='hist' ? 'block' : 'none';
-  document.getElementById('tab-live').className = 'tab-btn ' + (tab==='live' ? 'active' : 'inactive');
-  document.getElementById('tab-hist').className = 'tab-btn ' + (tab==='hist' ? 'active' : 'inactive');
+  document.getElementById('panel-live').style.display   = tab==='live'   ? 'block' : 'none';
+  document.getElementById('panel-hist').style.display   = tab==='hist'   ? 'block' : 'none';
+  document.getElementById('panel-notice').style.display = tab==='notice' ? 'block' : 'none';
+  document.getElementById('tab-live').className   = 'tab-btn ' + (tab==='live'   ? 'active' : 'inactive');
+  document.getElementById('tab-hist').className   = 'tab-btn ' + (tab==='hist'   ? 'active' : 'inactive');
+  document.getElementById('tab-notice').className = 'tab-btn ' + (tab==='notice' ? 'active' : 'inactive');
   if (tab==='hist') loadHistData();
+  if (tab==='notice') loadNotices();
+}
+
+// ── 공지사항 ──────────────────────────────────
+async function loadNotices() {
+  try {
+    const res = await fetch(`${serverUrl()}/notice`);
+    const list = await res.json();
+    const el = document.getElementById('notice-list');
+    if (!list.length) {
+      el.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:#555">등록된 공지가 없습니다</div>';
+      return;
+    }
+    el.innerHTML = list.map(n => `
+      <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:12px;padding:14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div style="font-size:13px;font-weight:600;color:#fff">${n.title}</div>
+          <button onclick="deleteNotice(${n.id})"
+            style="background:#2e0d0d;border:1px solid #E24B4A;color:#E24B4A;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
+        </div>
+        <div style="font-size:12px;color:#aaa;line-height:1.6">${n.content}</div>
+        <div style="font-size:10px;color:#555;margin-top:6px">${new Date(n.createdAt).toLocaleString('ko-KR')}</div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('notice-list').innerHTML = '<div style="color:#E24B4A;font-size:12px;padding:10px">불러오기 실패</div>';
+  }
+}
+
+async function postNotice() {
+  const title = document.getElementById('notice-title').value.trim();
+  const content = document.getElementById('notice-content').value.trim();
+  if (!title || !content) { alert('제목과 내용을 입력해주세요'); return; }
+  try {
+    const res = await fetch(`${serverUrl()}/notice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('notice-title').value = '';
+      document.getElementById('notice-content').value = '';
+      await loadNotices();
+    } else { alert('등록 실패'); }
+  } catch(e) { alert('서버 연결 실패: ' + e.message); }
+}
+
+async function deleteNotice(id) {
+  if (!confirm('이 공지를 삭제하시겠습니까?')) return;
+  try {
+    const res = await fetch(`${serverUrl()}/notice/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) await loadNotices();
+    else alert('삭제 실패');
+  } catch(e) { alert('서버 연결 실패: ' + e.message); }
 }
 
 // ── 실시간 탭 ────────────────────────────────

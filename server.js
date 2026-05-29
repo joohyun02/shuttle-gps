@@ -242,6 +242,63 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ─── 공지사항 API ────────────────────────────────
+  const NOTICE_FILE = path.join(DATA_DIR, 'notices.json');
+  function loadNotices() {
+    if (!fs.existsSync(NOTICE_FILE)) return [];
+    try { return JSON.parse(fs.readFileSync(NOTICE_FILE, 'utf-8')); }
+    catch(e) { return []; }
+  }
+  function saveNotices(list) {
+    fs.writeFileSync(NOTICE_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  }
+
+  // GET /notice — 공지 목록
+  if (req.method === 'GET' && url.pathname === '/notice') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(loadNotices()));
+    return;
+  }
+
+  // POST /notice — 공지 작성
+  if (req.method === 'POST' && url.pathname === '/notice') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { title, content } = JSON.parse(body);
+        if (!title || !content) {
+          res.writeHead(400); res.end(JSON.stringify({ error: 'title, content 필수' })); return;
+        }
+        const notices = loadNotices();
+        const notice = { id: Date.now(), title, content, createdAt: Date.now() };
+        notices.unshift(notice); // 최신순
+        saveNotices(notices);
+        console.log(`[공지] 작성: ${title}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, notice }));
+      } catch(e) {
+        res.writeHead(400); res.end(JSON.stringify({ error: 'invalid JSON' }));
+      }
+    });
+    return;
+  }
+
+  // DELETE /notice/:id — 공지 삭제
+  if (req.method === 'DELETE' && url.pathname.startsWith('/notice/')) {
+    const id = Number(url.pathname.split('/')[2]);
+    const notices = loadNotices();
+    const filtered = notices.filter(n => n.id !== id);
+    if (filtered.length === notices.length) {
+      res.writeHead(404); res.end(JSON.stringify({ error: 'NOT_FOUND' })); return;
+    }
+    saveNotices(filtered);
+    console.log(`[공지] 삭제: id=${id}`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
   // ─── GPS 위치 API ─────────────────────────────
   if (req.method === 'POST' && url.pathname === '/location') {
     let body = '';
