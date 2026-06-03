@@ -369,7 +369,7 @@ async function processQR(token) {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.frequency.value = success ? 880 : 1200;
-      osc.type = 'sine';
+      osc.type = success ? 'sine': 'sawtooth';
       gain.gain.setValueAtTime(0.5, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
       osc.start(ctx.currentTime);
