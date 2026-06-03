@@ -353,13 +353,29 @@ async function processQR(token) {
   if (token === lastScanned) return;
   lastScanned = token;
   scanCooldown = true;
-  setTimeout(() => { scanCooldown = false; lastScanned = null; }, 3000);
+  setTimeout(() => { scanCooldown = false; lastScanned = null; }, 5000);
 
   const baseUrl = window.location.origin;
   const resultEl = document.getElementById('scan-result');
   resultEl.style.display = 'block';
   resultEl.className = 'scan-result';
   resultEl.innerHTML = '⏳ 확인 중...';
+
+  function playBeep(success) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = success ? 880 : 330;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch(e) {}
+  }
 
   try {
     const res = await fetch(`${baseUrl}/scan`, {
@@ -370,23 +386,28 @@ async function processQR(token) {
     const data = await res.json();
 
     if (res.ok && data.ok) {
+      playBeep(true);
       resultEl.className = 'scan-result scan-ok';
       resultEl.innerHTML = `✅ 탑승 확인<div class="scan-info">${data.name} · ${data.busId} · ${formatTime(data.boardedAt)}</div>`;
       scanLog(`탑승확인: ${data.name} / ${data.busId}`, 'ok');
     } else if (res.status === 409) {
+      playBeep(false);
       resultEl.className = 'scan-result scan-err';
       resultEl.innerHTML = `⚠️ 이미 탑승 처리됨<div class="scan-info">${formatTime(data.boardedAt)} 처리됨</div>`;
       scanLog('이미 탑승 처리된 승차권', 'err');
     } else if (res.status === 404) {
+      playBeep(false);
       resultEl.className = 'scan-result scan-err';
       resultEl.innerHTML = `❌ 예약 없음<div class="scan-info">이 날짜에 예약 내역이 없습니다</div>`;
       scanLog('예약 없음: ' + token, 'err');
     } else {
+      playBeep(false);
       resultEl.className = 'scan-result scan-err';
       resultEl.innerHTML = `❌ 유효하지 않은 QR<div class="scan-info">${data.message || ''}</div>`;
       scanLog('유효하지 않은 QR', 'err');
     }
   } catch(e) {
+    playBeep(false);
     resultEl.className = 'scan-result scan-err';
     resultEl.innerHTML = `❌ 서버 연결 실패<div class="scan-info">${e.message}</div>`;
     scanLog('서버 연결 실패: ' + e.message, 'err');
