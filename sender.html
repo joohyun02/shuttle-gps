@@ -362,20 +362,37 @@ async function processQR(token) {
   resultEl.innerHTML = '⏳ 확인 중...';
 
   function playBeep(success) {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (success) {
+      // 성공: 맑은 단음
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.value = success ? 880 : 1200;
-      osc.type = success ? 'sine': 'sawtooth';
+      osc.frequency.value = 880;
+      osc.type = 'sine';
       gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.4);
-    } catch(e) {}
-  }
+    } else {
+      // 실패: 낮은 음 두 번 (삐-삐)
+      [0, 0.3].forEach(offset => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 300;
+        osc.type = 'square';
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.2);
+        osc.start(ctx.currentTime + offset);
+        osc.stop(ctx.currentTime + offset + 0.2);
+      });
+    }
+  } catch(e) {}
+}
 
   try {
     const res = await fetch(`${baseUrl}/scan`, {
