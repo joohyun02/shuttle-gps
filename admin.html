@@ -86,27 +86,27 @@ body {
 /* 통계 */
 .stats-grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; padding: 16px 20px;
+  gap: 8px; padding: 12px 12px;
 }
-.stat-card { background: #111118; border-radius: 10px; padding: 14px; text-align: center; }
-.stat-num { font-size: 28px; font-weight: 700; color: #534AB7; }
-.stat-label { font-size: 11px; color: #555; margin-top: 4px; }
+.stat-card { background: #111118; border-radius: 10px; padding: 10px 6px; text-align: center; }
+.stat-num { font-size: 22px; font-weight: 700; color: #534AB7; }
+.stat-label { font-size: 10px; color: #555; margin-top: 4px; word-break: keep-all; }
 
 /* 노선 테이블 */
-.route-table { width: 100%; }
+.route-table { width: 100%; overflow-x: auto; }
 .route-row {
-  display: grid; grid-template-columns: 1fr 80px 80px 80px 100px;
-  align-items: center; padding: 12px 20px;
-  border-bottom: 1px solid #1e1e2a; gap: 8px;
+  display: grid; grid-template-columns: minmax(80px,1.5fr) minmax(40px,1fr) minmax(40px,1fr) minmax(40px,1fr) minmax(60px,1fr);
+  align-items: center; padding: 12px 12px;
+  border-bottom: 1px solid #1e1e2a; gap: 4px;
 }
 .route-row:last-child { border-bottom: none; }
 .route-row.header-row {
   font-size: 10px; color: #555; text-transform: uppercase;
-  letter-spacing: .06em; padding: 8px 20px; border-bottom: 1px solid #2a2a38;
+  letter-spacing: .06em; padding: 8px 12px; border-bottom: 1px solid #2a2a38;
 }
-.route-name { font-size: 13px; font-weight: 500; }
-.route-dir { font-size: 11px; color: #888; margin-top: 2px; }
-.seats-num { font-size: 13px; font-weight: 600; text-align: center; }
+.route-name { font-size: 12px; font-weight: 500; word-break: keep-all; }
+.route-dir { font-size: 10px; color: #888; margin-top: 2px; word-break: keep-all; }
+.seats-num { font-size: 12px; font-weight: 600; text-align: center; }
 .seats-num.ok { color: #1D9E75; }
 .seats-num.warn { color: #EF9F27; }
 .seats-num.full { color: #E24B4A; }
@@ -240,13 +240,6 @@ body {
       </div>
     </div>
     <div class="route-table">
-      <div class="route-row header-row">
-        <div>노선</div>
-        <div style="text-align:center">예약</div>
-        <div style="text-align:center">잔여</div>
-        <div style="text-align:center">탑승</div>
-        <div style="text-align:center">초기화</div>
-      </div>
       <div id="routeList"></div>
     </div>
   </div>
@@ -529,21 +522,31 @@ function renderRoutes() {
     }).join('');
 
     return `
-      <div style="border-bottom:1px solid #1e1e2a">
-        <div class="route-row" style="border-bottom:none">
+      <div style="border-bottom:1px solid #1e1e2a;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div>
             <div class="route-name">${r.name}</div>
-            <div class="route-dir">${dirLabel} 예약 ${cur.reserved}명 · 탑승 ${boarded}명 · 잔여 ${cur.available}석</div>
-            <div class="seats-bar" style="margin-top:6px">
-              <div class="seats-bar-fill" style="width:${boardRate}%;background:${barColor}"></div>
-            </div>
-            <div class="stop-tag-row" style="margin-top:6px">${stopTags}</div>
+            <div class="route-dir">${dirLabel} · 예약 ${cur.reserved}명 · 탑승 ${boarded}명 · 잔여 ${cur.available}석</div>
           </div>
-          <div class="seats-num">${cur.reserved}</div>
-          <div class="seats-num ${numClass}">${cur.available}</div>
-          <div class="seats-num" style="color:#888">${boarded}명<br><span style="font-size:10px;color:#555">${boardRate}%</span></div>
-          <div><div class="btn-reset" onclick="confirmReset('${busId}','${r.name} ${dirLabel}')">초기화</div></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <div class="seats-num" style="color:#888;font-size:12px">탑승 ${boarded}명<br><span style="font-size:10px;color:#555">${boardRate}%</span></div>
+            <div class="btn-reset" onclick="confirmReset('${busId}','${r.name} ${dirLabel}')">초기화</div>
+          </div>
         </div>
+        <div class="seats-bar" style="margin-bottom:8px">
+          <div class="seats-bar-fill" style="width:${boardRate}%;background:${barColor}"></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:8px">
+          <div style="text-align:center">
+            <div style="font-size:10px;color:#555;margin-bottom:2px">예약</div>
+            <div class="seats-num">${cur.reserved}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:#555;margin-bottom:2px">잔여</div>
+            <div class="seats-num ${numClass}">${cur.available}</div>
+          </div>
+        </div>
+        <div class="stop-tag-row">${stopTags}</div>
       </div>`;
   }).join('');
 
